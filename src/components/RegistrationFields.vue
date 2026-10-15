@@ -1,98 +1,141 @@
 <script setup>
-import { computed, watch } from "vue";
+import { watch } from "vue";
 import ChoiceGroup from "./ChoiceGroup.vue";
-import PickerField from "./PickerField.vue";
 import QuestionField from "./QuestionField.vue";
-import {
-  OPTIONS,
-  EXCLUSIVE,
-  LIMITS,
-  FAMILY_AUDIENCES,
-  HEAVY_HABITS,
-  deviceNeedsModel,
-} from "../model.js";
+import LocationCard from "./LocationCard.vue";
+import { OPTIONS, EXCLUSIVE, LIMITS } from "../model.js";
 const draft = defineModel({ type: Object, required: true });
-defineProps({
-  errors: { type: Object, default: () => ({}) },
-  busy: Boolean,
-  activeSheet: String,
-});
-defineEmits(["open-picker"]);
+defineProps({ errors: { type: Object, default: () => ({}) }, busy: Boolean });
 const questions = [
-  { key: "audience", title: "这张卡，主要准备给谁用？" },
+  { key: "location", title: "这张卡主要准备在哪个城市使用？" },
+  { key: "audience", title: "无疆卡主要准备给谁使用？" },
   {
-    key: "devices",
-    title: "准备把卡用在哪些设备上？",
-    hint: "可多选，按你现在的设备情况填写。",
-    multiple: true,
+    key: "device",
+    title: "这张卡主要准备插在哪台设备上？",
+    hint: "本次每人领取 1 张卡，选择主要使用的设备。",
   },
   {
     key: "usage",
-    title: "这些人和设备，每月实际用多少流量？",
-    hint: "参考最近一个月；家庭共享算合计，不清楚也可以。",
-    picker: true,
+    title: "之前每个月实际需要多少流量？",
+    hint: "填写预计使用这张卡的人，最近一个月的合计用量；估算也可以。",
+  },
+  {
+    key: "activities",
+    title: "每月流量主要用来做什么？",
+    hint: "可多选。",
+    multiple: true,
+  },
+  {
+    key: "access",
+    title: "你现在主要用什么方式上网？",
+    hint: "可多选。",
+    multiple: true,
   },
   {
     key: "problems",
-    title: "现在最想解决哪些上网问题？",
-    hint: "选最在意的 1—2 项。",
+    title: "目前最想解决哪些上网问题？",
+    hint: "最多选 2 项。",
     multiple: true,
     wide: true,
   },
-  { key: "unicomExperience", title: "使用地的联通网络，体验怎么样？" },
-  {
-    key: "habits",
-    title: "平时主要怎样使用流量？",
-    hint: "可多选，如实选择平时的习惯。",
-    multiple: true,
-  },
-  {
-    key: "plans",
-    title: "最想怎样搭配使用无疆卡？",
-    hint: "选最想尝试的 1—2 种。",
-    multiple: true,
-  },
-  { key: "startTime", title: "拿到卡后，预计什么时候开始用？" },
   {
     key: "story",
-    title: "说一个你想用无疆卡的真实场景。",
-    hint: "谁在用、现在什么麻烦、想怎么解决。几句话就好。",
+    title: "最希望无疆卡解决哪个具体问题？",
+    hint: "写清谁在用、现在有什么麻烦、希望怎么解决。",
     text: true,
+    max: 100,
+    placeholder:
+      "比如：我经常出差，想给随身 CPE 准备一张备用卡，需要时再买流量。",
+  },
+  {
+    key: "startTime",
+    title: "如果适合你，准备什么时候充值使用？",
+    hint: "请先了解正式资费和设备适配情况，如实选择。",
+    wide: true,
+  },
+  {
+    key: "priorities",
+    title: "对于流量卡，你最在意哪两个方面？",
+    hint: "最多选 2 项。",
+    multiple: true,
+  },
+  { key: "experience", title: "遇到过让你印象深刻的网络麻烦吗？" },
+  {
+    key: "discussion",
+    title: "还有什么想吐槽，或想让张导讲清楚？",
+    hint: "没有补充可以填“暂无”。",
+    text: true,
+    max: 150,
+    placeholder: "比如：最想知道单 GB 价格，以及怎样查看和控制流量费用。",
   },
 ];
-const heavyUsage = computed(() =>
-  draft.value.habits.some((value) => HEAVY_HABITS.includes(value)),
-);
+const followups = {
+  audience: {
+    key: "relationship",
+    when: () => draft.value.audience === "其他人",
+    title: "主要给谁使用？",
+    placeholder: "如父母、朋友，不用填写姓名",
+    max: 30,
+  },
+  device: {
+    key: "deviceModel",
+    when: () => draft.value.device === "其他 CPE",
+    title: "这台 CPE 的具体型号",
+    placeholder: "如 C2000 Pro、AK68",
+    max: 80,
+  },
+  activities: {
+    key: "activityOther",
+    when: () => draft.value.activities.includes("其他用途"),
+    title: "其他流量用途",
+    placeholder: "简单说说你平时用流量做什么",
+    max: 80,
+  },
+  access: {
+    key: "accessOther",
+    when: () => draft.value.access.includes("其他方式"),
+    title: "目前的其他上网方式",
+    placeholder: "填写当前联网方式",
+    max: 80,
+  },
+  problems: {
+    key: "problemOther",
+    when: () => draft.value.problems.includes("其他问题"),
+    title: "你遇到的其他网络问题",
+    placeholder: "说说具体的困扰",
+    max: 100,
+  },
+  priorities: {
+    key: "priorityOther",
+    when: () => draft.value.priorities.includes("其他方面"),
+    title: "你还在意什么？",
+    placeholder: "填写你在意的方面",
+    max: 80,
+  },
+  experience: {
+    key: "experienceStory",
+    when: () => draft.value.experience === "有，想说说",
+    title: "分享一次真实经历",
+    hint: "发生了什么、有什么影响、试过什么办法？几句话就好。",
+    placeholder: "比如：开会时热点断了，临时换网络还是没赶上汇报。",
+    max: 200,
+    text: true,
+  },
+};
+for (const followup of Object.values(followups))
+  watch(followup.when, (visible) => {
+    if (!visible) draft.value[followup.key] = "";
+  });
 watch(
-  () => draft.value.audience,
-  (value) => {
-    if (!FAMILY_AUDIENCES.includes(value)) draft.value.sharedCount = "";
+  () => draft.value.access.includes("CPE 流量卡"),
+  (visible) => {
+    if (!visible) draft.value.currentSetup = "";
   },
 );
 watch(
-  () => [...draft.value.devices],
-  (value) => {
-    if (!deviceNeedsModel(value)) draft.value.deviceModel = "";
-    if (!value.includes("家里闲置的 CPE")) draft.value.idleCount = "";
-  },
-);
-watch(
-  () => [...draft.value.problems],
-  (value) => {
-    if (!value.includes("其他问题")) draft.value.problemOther = "";
-  },
-);
-watch(
-  () => [...draft.value.plans],
-  (value) => {
-    if (!value.includes("双网络分流或聚合"))
-      draft.value.aggregationReadiness = "";
-  },
-);
-watch(
-  () => [...draft.value.liveQuestions],
-  (value) => {
-    if (!value.includes("其他问题")) draft.value.liveQuestionOther = "";
+  () => draft.value.usageUnknown,
+  (unknown) => {
+    if (unknown) draft.value.usage = "";
   },
 );
 </script>
@@ -107,27 +150,56 @@ watch(
     :error="errors[question.key]"
     :disabled="busy"
   >
-    <PickerField
-      v-if="question.picker"
-      :model-value="draft.usage"
-      name="usage"
-      label="选择实际月用量"
-      :invalid="!!errors.usage"
-      :expanded="activeSheet === 'usage'"
-      @open="$emit('open-picker', 'usage')"
+    <LocationCard
+      v-if="question.key === 'location'"
+      v-model="draft.location"
+      :invalid="!!errors.location"
     />
+    <template v-else-if="question.key === 'usage'">
+      <label
+        class="usage-input"
+        :class="{ disabled: draft.usageUnknown, invalid: errors.usage }"
+        ><input
+          v-model="draft.usage"
+          :disabled="draft.usageUnknown"
+          inputmode="decimal"
+          type="text"
+          maxlength="12"
+          aria-label="每月实际流量"
+          :aria-invalid="!!errors.usage || undefined"
+          :aria-describedby="errors.usage ? 'usage-error' : undefined"
+          placeholder="填写大概用量"
+        /><span>GB / 月</span></label
+      >
+      <label class="check-row usage-unknown"
+        ><input
+          v-model="draft.usageUnknown"
+          type="checkbox"
+        />暂时不清楚用量</label
+      >
+      <p
+        v-if="draft.previous?.usage && !draft.usage && !draft.usageUnknown"
+        class="previous-answer"
+      >
+        上次填写：{{ draft.previous.usage }}，这次请填写大概的 GB 数。
+      </p>
+    </template>
     <template v-else-if="question.text">
       <textarea
-        id="story"
-        v-model="draft.story"
-        aria-label="真实使用场景"
-        maxlength="150"
-        rows="4"
-        placeholder="比如：爸妈用量不多，家里两台 CPE 闲着，想共享一份流量，偶尔用时再付费。"
-        :aria-invalid="!!errors.story || undefined"
-        :aria-describedby="errors.story ? 'story-error' : undefined"
+        v-model="draft[question.key]"
+        :name="question.key"
+        :aria-label="question.title"
+        :maxlength="question.max"
+        rows="3"
+        :placeholder="question.placeholder"
+        :aria-invalid="!!errors[question.key] || undefined"
+        :aria-describedby="
+          errors[question.key] ? `${question.key}-error` : undefined
+        "
       ></textarea>
-      <div class="character-count">{{ draft.story.length }} / 150</div>
+      <div class="character-count">
+        {{ draft[question.key].length }} / {{ question.max }}
+      </div>
     </template>
     <ChoiceGroup
       v-else
@@ -142,7 +214,7 @@ watch(
     />
     <p
       v-if="
-        ['problems', 'plans'].includes(question.key) &&
+        ['problems', 'priorities'].includes(question.key) &&
         draft[question.key].length
       "
       class="selection-count"
@@ -154,212 +226,86 @@ watch(
     </p>
     <p
       v-if="
-        question.key === 'devices' &&
-        !draft.devices.length &&
-        draft.previous?.device
+        question.key === 'device' &&
+        !draft.device &&
+        draft.previous?.devices?.length
       "
       class="previous-answer"
     >
-      上次填写：{{
-        draft.previous.deviceModel || draft.previous.device
-      }}，请补充现在的设备情况。
+      上次填写：{{ draft.previous.devices.join("、") }}。本次领取 1
+      张，请选择主要使用的设备。
     </p>
-    <p
-      v-if="question.key === 'usage' && !draft.usage && draft.previous?.usage"
-      class="previous-answer"
-    >
-      上次填写：{{ draft.previous.usage }}，请按新的区间重新选择。
-    </p>
-    <Transition name="expand">
-      <div
-        v-if="
-          question.key === 'audience' &&
-          FAMILY_AUDIENCES.includes(draft.audience)
-        "
+    <Transition name="expand"
+      ><div
+        v-if="followups[question.key]?.when()"
         class="conditional follow-up-wrap"
       >
         <QuestionField
           sub
-          name="sharedCount"
-          title="包含你自己，预计有几人共享？"
-          :error="errors.sharedCount"
+          :name="followups[question.key].key"
+          :title="followups[question.key].title"
+          :hint="followups[question.key].hint"
+          :error="errors[followups[question.key].key]"
         >
-          <ChoiceGroup
-            v-model="draft.sharedCount"
-            name="sharedCount"
-            :options="OPTIONS.sharedCount"
-            :invalid="!!errors.sharedCount"
-          />
-        </QuestionField>
-      </div>
-    </Transition>
-    <Transition name="expand">
-      <div
-        v-if="question.key === 'devices' && deviceNeedsModel(draft.devices)"
-        class="conditional follow-up-wrap"
-      >
-        <QuestionField
-          sub
-          name="deviceModel"
-          title="其他或闲置 CPE 的具体型号"
-          hint="多台可分开写，用于核对适配性。"
-          :error="errors.deviceModel"
-        >
-          <input
-            v-model="draft.deviceModel"
+          <textarea
+            v-if="followups[question.key].text"
+            v-model="draft[followups[question.key].key]"
             class="field-input"
-            name="deviceModel"
-            aria-label="具体设备型号"
-            placeholder="如 C2000 Pro、AK68"
-            maxlength="80"
-            :aria-invalid="!!errors.deviceModel || undefined"
+            :name="followups[question.key].key"
+            :aria-label="followups[question.key].title"
+            :placeholder="followups[question.key].placeholder"
+            :maxlength="followups[question.key].max"
+            :aria-invalid="!!errors[followups[question.key].key] || undefined"
             :aria-describedby="
-              errors.deviceModel ? 'deviceModel-error' : undefined
+              errors[followups[question.key].key]
+                ? `${followups[question.key].key}-error`
+                : undefined
+            "
+          ></textarea>
+          <input
+            v-else
+            v-model="draft[followups[question.key].key]"
+            class="field-input"
+            :name="followups[question.key].key"
+            :aria-label="followups[question.key].title"
+            :placeholder="followups[question.key].placeholder"
+            :maxlength="followups[question.key].max"
+            :aria-invalid="!!errors[followups[question.key].key] || undefined"
+            :aria-describedby="
+              errors[followups[question.key].key]
+                ? `${followups[question.key].key}-error`
+                : undefined
             "
           />
+          <div v-if="followups[question.key].text" class="character-count">
+            {{ draft[followups[question.key].key].length }} /
+            {{ followups[question.key].max }}
+          </div>
         </QuestionField>
-        <QuestionField
-          v-if="draft.devices.includes('家里闲置的 CPE')"
-          sub
-          name="idleCount"
-          title="家里现在有几台闲置 CPE？"
-          :error="errors.idleCount"
-        >
-          <ChoiceGroup
-            v-model="draft.idleCount"
-            name="idleCount"
-            :options="OPTIONS.idleCount"
-            :invalid="!!errors.idleCount"
-          />
-        </QuestionField>
-      </div>
-    </Transition>
-    <Transition name="expand">
-      <div
-        v-if="
-          question.key === 'problems' && draft.problems.includes('其他问题')
-        "
-        class="conditional"
-        data-field="problemOther"
-      >
-        <input
-          v-model="draft.problemOther"
-          class="field-input"
-          name="problemOther"
-          aria-label="其他网络问题"
-          placeholder="简单说说你遇到的问题"
-          maxlength="80"
-          :aria-invalid="!!errors.problemOther || undefined"
-          :aria-describedby="
-            errors.problemOther ? 'problemOther-error' : undefined
-          "
-        />
-        <p
-          v-if="errors.problemOther"
-          id="problemOther-error"
-          class="field-error"
-          role="alert"
-        >
-          {{ errors.problemOther }}
-        </p>
-      </div>
-    </Transition>
-    <div v-if="question.key === 'unicomExperience'" class="conditional">
-      <input
-        v-model="draft.city"
-        class="field-input"
-        aria-label="使用地省市（选填）"
-        placeholder="所在省市（选填，如浙江杭州）"
-        maxlength="30"
-        autocomplete="address-level2"
-      />
-    </div>
-    <Transition name="expand"
-      ><p
-        v-if="question.key === 'habits' && heavyUsage"
-        class="usage-warning"
-        role="status"
-      >
-        无疆卡按流量计费。高清视频、频繁测速、大文件下载或持续传输都会增加费用，请结合正式单价和用量判断是否适合。
-      </p></Transition
+      </div></Transition
     >
-    <Transition name="expand">
-      <div
-        v-if="
-          question.key === 'plans' && draft.plans.includes('双网络分流或聚合')
-        "
+    <Transition name="expand"
+      ><div
+        v-if="question.key === 'access' && draft.access.includes('CPE 流量卡')"
         class="conditional follow-up-wrap"
       >
         <QuestionField
           sub
-          name="aggregationReadiness"
-          title="设备和经验准备得怎么样？"
-          hint="具体设备支持和玩法，以正式规则为准。"
-          :error="errors.aggregationReadiness"
-        >
-          <ChoiceGroup
-            v-model="draft.aggregationReadiness"
-            name="aggregationReadiness"
-            :options="OPTIONS.aggregationReadiness"
-            :invalid="!!errors.aggregationReadiness"
-          />
-        </QuestionField>
-      </div>
-    </Transition>
+          name="currentSetup"
+          title="目前使用的设备和套餐"
+          hint="不清楚套餐名称也可以如实填写。"
+          :error="errors.currentSetup"
+          ><input
+            v-model="draft.currentSetup"
+            class="field-input"
+            aria-label="目前使用的设备和套餐"
+            placeholder="如 Ultra + 天火卡，或套餐名称不清楚"
+            maxlength="100"
+            :aria-invalid="!!errors.currentSetup || undefined"
+            :aria-describedby="
+              errors.currentSetup ? 'currentSetup-error' : undefined
+            "
+        /></QuestionField></div
+    ></Transition>
   </QuestionField>
-  <details class="optional-section">
-    <summary>
-      <span>再补充两项<span class="optional">选填</span></span
-      ><span class="details-arrow" aria-hidden="true">＋</span>
-    </summary>
-    <div class="optional-body">
-      <QuestionField
-        name="monthlyCost"
-        title="这些设备，每月流量费用大约多少？"
-        hint="填当前实际花费，不用上传账单。"
-        :disabled="busy"
-      >
-        <ChoiceGroup
-          v-model="draft.monthlyCost"
-          name="monthlyCost"
-          :options="OPTIONS.monthlyCost"
-        />
-        <button
-          v-if="draft.monthlyCost"
-          type="button"
-          class="clear-choice"
-          @click="draft.monthlyCost = ''"
-        >
-          清空选择
-        </button>
-      </QuestionField>
-      <QuestionField
-        name="liveQuestions"
-        title="最希望张导在直播间讲清楚什么？"
-        hint="可多选。"
-        :disabled="busy"
-      >
-        <ChoiceGroup
-          v-model="draft.liveQuestions"
-          name="liveQuestions"
-          :options="OPTIONS.liveQuestions"
-          multiple
-          :max="LIMITS.liveQuestions"
-        />
-        <Transition name="expand"
-          ><div
-            v-if="draft.liveQuestions.includes('其他问题')"
-            class="conditional"
-          >
-            <input
-              v-model="draft.liveQuestionOther"
-              class="field-input"
-              aria-label="其他直播问题（选填）"
-              placeholder="写下你想问的问题（选填）"
-              maxlength="100"
-            /></div
-        ></Transition>
-      </QuestionField>
-    </div>
-  </details>
 </template>

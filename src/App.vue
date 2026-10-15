@@ -11,7 +11,7 @@ import {
 import BottomSheet from "./components/BottomSheet.vue";
 import RegistrationFields from "./components/RegistrationFields.vue";
 import {
-  OPTIONS,
+  CORE_FIELDS,
   completedQuestions,
   persistState,
   readState,
@@ -52,22 +52,25 @@ watch(view, () => window.scrollTo({ top: 0, behavior: "instant" }), {
   flush: "post",
 });
 const savedProgress = computed(() => completedQuestions(state.draft));
-const picker = computed(() => ({
-  key: "usage",
-  title: "每月实际使用多少流量？",
-  hint: "参考最近一个月，家庭共享请算合计用量",
-  options: OPTIONS.usage,
-}));
-const receivedDevice = computed(() =>
-  state.application.devices.length
-    ? state.application.devices.join("、")
-    : state.application.previous?.deviceModel ||
-      state.application.previous?.device ||
-      "待补充",
+const receivedDevice = computed(
+  () =>
+    state.application.deviceModel ||
+    state.application.device ||
+    state.application.previous?.devices?.join("、") ||
+    state.application.previous?.previous?.deviceModel ||
+    state.application.previous?.previous?.device ||
+    "待补充",
 );
-const sheetTitle = computed(() =>
-  displaySheet.value === "intro" ? "无疆卡 · 5G 加油站" : picker.value.title,
+const receivedUsage = computed(() =>
+  state.application.usageUnknown
+    ? "暂时不清楚"
+    : state.application.usage
+      ? `${state.application.usage} GB / 月`
+      : state.application.previous?.usage ||
+        state.application.previous?.previous?.usage ||
+        "待补充",
 );
+const sheetTitle = "无疆卡 · 5G 加油站";
 const sheetToken = `wujiang-${Date.now()}`;
 let sheetInHistory = false;
 let historyClosing = false;
@@ -152,24 +155,6 @@ function onPopState() {
     openSheet(next.type, next.addHistory);
   }
 }
-function chooseOption(value) {
-  state.draft[picker.value.key] = value;
-  closeSheet();
-}
-function optionKeys(event) {
-  if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
-  event.preventDefault();
-  const items = [...event.currentTarget.querySelectorAll("[role=radio]")];
-  const index = items.indexOf(document.activeElement);
-  const next =
-    event.key === "Home"
-      ? 0
-      : event.key === "End"
-        ? items.length - 1
-        : (index + (event.key === "ArrowDown" ? 1 : -1) + items.length) %
-          items.length;
-  items[next]?.focus();
-}
 async function focusView() {
   await nextTick();
   if (
@@ -213,7 +198,9 @@ async function submit() {
     await nextTick();
     const wrapper = document.querySelector(`[data-field="${firstKey}"]`);
     wrapper
-      ?.querySelector("input, button, textarea")
+      ?.querySelector(
+        "input:not(:disabled), button:not(:disabled), textarea, select",
+      )
       ?.focus({ preventScroll: true });
     wrapper?.scrollIntoView({
       behavior: "instant",
@@ -226,7 +213,7 @@ async function submit() {
   busyTimer = setTimeout(() => {
     state.application = sanitizeApplication({
       ...state.draft,
-      schemaVersion: 3,
+      schemaVersion: 4,
     });
     state.draft = sanitizeApplication(state.application);
     state.updatedAt = new Date().toISOString();
@@ -316,10 +303,14 @@ onBeforeUnmount(() => {
             ><span class="account-note">演示身份</span>
           </div>
           <div class="form-progress" aria-live="polite">
-            <span>按实际情况填写 · 草稿自动保存</span
-            ><span>{{ savedProgress }} / 9</span>
+            <span>按实际情况填写 · 全部必填 · 自动保存</span
+            ><span>{{ savedProgress }} / {{ CORE_FIELDS.length }}</span>
             <div class="progress-track">
-              <span :style="{ width: `${(savedProgress / 9) * 100}%` }"></span>
+              <span
+                :style="{
+                  width: `${(savedProgress / CORE_FIELDS.length) * 100}%`,
+                }"
+              ></span>
             </div>
           </div>
           <form
@@ -332,8 +323,6 @@ onBeforeUnmount(() => {
               v-model="state.draft"
               :errors="errors"
               :busy="busy"
-              :active-sheet="activeSheet"
-              @open-picker="openSheet"
             />
             <div class="confirmation" data-field="feesAccepted">
               <label class="check-row"
@@ -347,7 +336,9 @@ onBeforeUnmount(() => {
                     errors.feesAccepted ? 'feesAccepted-error' : undefined
                   "
                 /><span
-                  >我已了解：<b>卡片免费，邮费 9.9 元，流量另行计费。</b></span
+                  >我已了解：<b
+                    >每人领取 1 张卡，卡片免费，邮费 9.9 元，流量另行计费。</b
+                  ></span
                 ></label
               >
               <p
@@ -358,19 +349,6 @@ onBeforeUnmount(() => {
               >
                 {{ errors.feesAccepted }}
               </p>
-              <label class="check-row optional-consent"
-                ><input
-                  v-model="state.draft.consent"
-                  :disabled="busy"
-                  type="checkbox"
-                  name="consent"
-                /><span
-                  >同意将我的回答匿名用于活动直播及短视频。<span
-                    class="optional"
-                    >选填</span
-                  ><small class="consent-note">不勾选不影响报名。</small></span
-                ></label
-              >
             </div>
             <div class="form-disclaimer">
               报名后请等待结果，不代表已获得名额。
@@ -412,7 +390,10 @@ onBeforeUnmount(() => {
             <div class="received-row">
               <span>使用对象</span
               ><span>{{
-                state.application.audience ||
+                (state.application.audience === "其他人" &&
+                state.application.relationship
+                  ? `其他人（${state.application.relationship}）`
+                  : state.application.audience) ||
                 state.application.previous?.audience ||
                 "待补充"
               }}</span>
@@ -421,12 +402,7 @@ onBeforeUnmount(() => {
               <span>设备</span><span>{{ receivedDevice }}</span>
             </div>
             <div class="received-row">
-              <span>实际月用量</span
-              ><span>{{
-                state.application.usage ||
-                state.application.previous?.usage ||
-                "待补充"
-              }}</span>
+              <span>实际月用量</span><span>{{ receivedUsage }}</span>
             </div>
             <div class="received-row">
               <span>预计开始</span
@@ -462,13 +438,13 @@ onBeforeUnmount(() => {
         <h2 id="sheet-title">无疆卡 · 5G 加油站</h2>
         <p class="intro-description">
           面向 CPE
-          设备的联通物联网共享流量卡。像给车加油一样，按需购买流量；一人购买套餐，多张共享卡供自己和家人的设备使用。
+          设备的联通物联网共享流量卡。像给车加油一样，按需购买流量，用多少付多少。
         </p>
         <p class="intro-scenarios">
-          让家人和闲置 CPE 共用流量，也可与天火卡搭配，用作备用网络。
+          可供自己或家人上网，也可与天火卡搭配，用作备用网络。
         </p>
         <div class="fee-summary">
-          <div><span>卡片</span><strong>免费领取</strong></div>
+          <div><span>本次每人领取 1 张</span><strong>卡片免费</strong></div>
           <span class="fee-plus">+</span>
           <div><span>下单邮费</span><strong>¥9.9</strong></div>
         </div>
@@ -481,38 +457,6 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </template>
-    <div v-else class="picker-body">
-      <h2 id="sheet-title">{{ picker.title }}</h2>
-      <p class="picker-hint">{{ picker.hint }}</p>
-      <div
-        class="picker-options"
-        role="radiogroup"
-        :aria-label="picker.title"
-        @keydown="optionKeys"
-      >
-        <button
-          v-for="(option, index) in picker.options"
-          :key="option"
-          type="button"
-          class="picker-option"
-          :class="{ selected: state.draft[picker.key] === option }"
-          role="radio"
-          :aria-checked="state.draft[picker.key] === option"
-          :data-initial-focus="
-            state.draft[picker.key] === option ||
-            (!state.draft[picker.key] && index === 0)
-              ? ''
-              : null
-          "
-          @click="chooseOption(option)"
-        >
-          <span>{{ option }}</span
-          ><span class="option-tick" aria-hidden="true">{{
-            state.draft[picker.key] === option ? "✓" : ""
-          }}</span>
-        </button>
-      </div>
-    </div>
   </BottomSheet>
   <Transition name="toast"
     ><div v-if="notice" class="toast" role="status">

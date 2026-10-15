@@ -1,262 +1,211 @@
-import { isPreviousSubmission, sanitizePrevious } from "./legacy-model.js";
-
+import {
+  sanitizeApplication as sanitizeV3,
+  validateApplication as validateV3,
+} from "./previous-model-v3.js";
+import { isPreviousSubmission } from "./legacy-model.js";
+import { validLocation } from "./location.js";
+export { toggleChoice } from "./previous-model-v3.js";
 export const STORAGE_KEY = "wujiang.signup.v1";
 export const OPTIONS = Object.freeze({
-  audience: [
-    "我自己",
-    "父母或长辈",
-    "伴侣或其他家人",
-    "家里多人一起用",
-    "还没确定",
+  audience: ["我自己", "其他人", "自己和家人一起用"],
+  device: ["Ultra", "其他 CPE", "暂未确定设备"],
+  activities: [
+    "打游戏",
+    "看视频、追剧",
+    "看直播",
+    "开直播",
+    "办公",
+    "学习",
+    "其他用途",
   ],
-  sharedCount: ["2 人", "3 人", "4 人", "5 人及以上", "还没确定"],
-  devices: [
-    "Ultra · 已收到",
-    "Ultra · 等待到货",
-    "其他在用的 CPE",
-    "家里闲置的 CPE",
-    "暂时没有设备",
-  ],
-  idleCount: ["1 台", "2 台", "3 台及以上"],
-  usage: [
-    "20GB 以内",
-    "21—50GB",
-    "51—100GB",
-    "101—200GB",
-    "201—300GB",
-    "300GB 以上",
-    "没查过，不清楚",
+  access: [
+    "家用宽带 / Wi-Fi",
+    "手机套餐 / 热点",
+    "CPE 流量卡",
+    "公共 Wi-Fi",
+    "其他方式",
   ],
   problems: [
     "套餐用不完，仍要交月费",
-    "家人各买套餐，管理麻烦",
+    "人或设备各买套餐，开支分散",
     "备用设备少用，套餐照付",
     "CPE 闲着，没有合适流量",
-    "游戏、会议或上网不稳定",
     "现有流量经常不够用",
-    "暂无明显问题，先了解",
+    "网络不稳定、卡顿或延迟高",
+    "计费规则或售后不清楚",
+    "暂无明显问题，想先了解",
     "其他问题",
-  ],
-  unicomExperience: [
-    "用过，比较稳定",
-    "用过，体验一般",
-    "用过，体验较差",
-    "没用过，不清楚",
-  ],
-  habits: [
-    "刷视频、聊天、浏览网页",
-    "打游戏、视频会议",
-    "长时间看高清视频",
-    "经常下载大型游戏或文件",
-    "每天多次测速",
-    "长时间持续下载或上传",
-    "还不清楚自己的用量",
-  ],
-  plans: [
-    "日常上网",
-    "需要时做备用",
-    "给家人共享流量",
-    "和天火卡搭配切换",
-    "双网络分流或聚合",
-    "先看教程，再决定",
-  ],
-  aggregationReadiness: [
-    "有设备，也有经验",
-    "有设备，需要教程",
-    "还没设备，先了解",
   ],
   startTime: [
-    "收卡后就开始",
-    "一个月内",
-    "等 Ultra 到货",
-    "等家人或设备准备好",
-    "暂时没有明确时间",
+    "拿到卡后就充值使用",
+    "一个月内开始使用",
+    "等设备准备好后使用",
+    "还没确定，先了解资费",
   ],
-  monthlyCost: [
-    "0 元",
-    "30 元以内",
-    "31—50 元",
-    "51—100 元",
-    "100 元以上",
-    "不清楚",
-    "不便提供",
+  priorities: [
+    "费用",
+    "流量",
+    "速度",
+    "稳定性",
+    "共享使用",
+    "售后",
+    "其他方面",
   ],
-  liveQuestions: [
-    "单 GB 价格和计费方式",
-    "家庭共享的限制",
-    "支持哪些设备",
-    "流量提醒与费用控制",
-    "如何搭配天火卡",
-    "双网络分流或聚合教程",
-    "其他问题",
-  ],
+  experience: ["有，想说说", "暂时没有"],
 });
 export const EXCLUSIVE = Object.freeze({
-  devices: ["暂时没有设备"],
-  problems: ["暂无明显问题，先了解"],
-  habits: ["还不清楚自己的用量"],
-  plans: ["先看教程，再决定"],
+  problems: ["暂无明显问题，想先了解"],
 });
 export const LIMITS = Object.freeze({
-  devices: 4,
+  activities: 7,
+  access: 5,
   problems: 2,
-  habits: 6,
-  plans: 2,
-  liveQuestions: 7,
+  priorities: 2,
 });
 export const CORE_FIELDS = [
+  "location",
   "audience",
-  "devices",
+  "device",
   "usage",
+  "activities",
+  "access",
   "problems",
-  "unicomExperience",
-  "habits",
-  "plans",
-  "startTime",
   "story",
+  "startTime",
+  "priorities",
+  "experience",
+  "discussion",
 ];
-export const FAMILY_AUDIENCES = OPTIONS.audience.slice(1, 4);
-export const HEAVY_HABITS = OPTIONS.habits.slice(2, 6);
-export const deviceNeedsModel = (devices) =>
-  Array.isArray(devices) &&
-  devices.some((v) => ["其他在用的 CPE", "家里闲置的 CPE"].includes(v));
-export function toggleChoice(
-  current,
-  option,
-  checked,
-  max = Infinity,
-  exclusive = [],
-) {
-  if (!checked) return current.filter((value) => value !== option);
-  if (exclusive.includes(option)) return [option];
-  const next = current.filter(
-    (value) => value !== option && !exclusive.includes(value),
-  );
-  return next.length < max ? [...next, option] : [...current];
-}
 export function blankApplication() {
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
+    location: { province: "", city: "" },
     audience: "",
-    sharedCount: "",
-    devices: [],
+    relationship: "",
+    device: "",
     deviceModel: "",
-    idleCount: "",
     usage: "",
+    usageUnknown: false,
+    activities: [],
+    activityOther: "",
+    access: [],
+    currentSetup: "",
+    accessOther: "",
     problems: [],
     problemOther: "",
-    unicomExperience: "",
-    city: "",
-    habits: [],
-    plans: [],
-    aggregationReadiness: "",
-    startTime: "",
     story: "",
-    monthlyCost: "",
-    liveQuestions: [],
-    liveQuestionOther: "",
+    startTime: "",
+    priorities: [],
+    priorityOther: "",
+    experience: "",
+    experienceStory: "",
+    discussion: "",
     feesAccepted: false,
-    consent: false,
     previous: null,
   };
 }
 const text = (value, max) =>
   typeof value === "string" ? value.slice(0, max) : "";
-function migratePrevious(previous) {
+function migrate(previous) {
+  const prior = previous.previous;
+  const audience =
+    previous.audience === "我自己"
+      ? "我自己"
+      : previous.audience === "家里多人一起用"
+        ? "自己和家人一起用"
+        : ["父母或长辈", "伴侣或其他家人"].includes(previous.audience)
+          ? "其他人"
+          : "";
+  const single = previous.devices.length === 1 ? previous.devices[0] : "";
+  const device = single.startsWith("Ultra")
+    ? "Ultra"
+    : ["其他在用的 CPE", "家里闲置的 CPE"].includes(single)
+      ? "其他 CPE"
+      : single === "暂时没有设备"
+        ? "暂未确定设备"
+        : "";
   const problemMap = {
-    套餐用不完仍要交月费: OPTIONS.problems[0],
-    家人分别买套餐太麻烦: OPTIONS.problems[1],
-    闲置设备缺合适套餐: OPTIONS.problems[3],
-    网络卡顿或掉线: OPTIONS.problems[4],
-    "游戏 / 会议延迟高": OPTIONS.problems[4],
-    流量经常不够用: OPTIONS.problems[5],
-    暂无明显问题: OPTIONS.problems[6],
-    其他问题: OPTIONS.problems[7],
+    "家人各买套餐，管理麻烦": OPTIONS.problems[1],
+    "游戏、会议或上网不稳定": OPTIONS.problems[5],
+    "暂无明显问题，先了解": OPTIONS.problems[7],
   };
   return {
-    audience:
-      previous.audience === "我自己"
-        ? "我自己"
-        : previous.audience === "家庭多人共享"
-          ? "家里多人一起用"
-          : "",
-    usage: OPTIONS.usage.includes(previous.usage)
-      ? previous.usage
-      : previous.usage === "不清楚"
-        ? "没查过，不清楚"
-        : "",
-    problems: problemMap[previous.networkProblem]
-      ? [problemMap[previous.networkProblem]]
-      : [],
-    problemOther: previous.networkProblemOther,
-    story: previous.story,
+    audience,
+    relationship: audience === "其他人" ? previous.audience : "",
+    device,
+    deviceModel: device === "其他 CPE" ? previous.deviceModel : "",
+    problems: previous.problems.map((v) => problemMap[v] || v),
+    problemOther: previous.problemOther,
+    story: previous.story || prior?.story || "",
+    usageUnknown: previous.usage === "没查过，不清楚",
     feesAccepted: previous.feesAccepted,
-    consent: previous.consent,
   };
 }
 export function sanitizeApplication(input) {
   const source = input && typeof input === "object" ? input : {};
-  const isOld =
-    source.schemaVersion === 1 ||
-    source.schemaVersion === 2 ||
-    (!source.schemaVersion && "device" in source);
-  const previous = isOld
-    ? sanitizePrevious(source.previous || source)
+  const old =
+    [1, 2, 3].includes(source.schemaVersion) ||
+    (!source.schemaVersion && ("devices" in source || "device" in source));
+  const previous = old
+    ? sanitizeV3("location" in source ? source.previous : source)
     : source.previous
-      ? sanitizePrevious(source.previous)
+      ? sanitizeV3(source.previous)
       : null;
-  const values =
-    isOld && !("devices" in source)
-      ? { ...migratePrevious(previous), previous }
-      : source;
+  const values = old ? migrate(previous) : source;
   const clean = blankApplication();
-  clean.schemaVersion = isOld ? previous.schemaVersion : 3;
+  clean.schemaVersion = old ? previous.schemaVersion : 4;
   clean.previous = previous;
-  for (const key of [
-    "audience",
-    "sharedCount",
-    "idleCount",
-    "usage",
-    "unicomExperience",
-    "aggregationReadiness",
-    "startTime",
-    "monthlyCost",
-  ])
-    if (OPTIONS[key].includes(values[key])) clean[key] = values[key];
+  // Canonical migrated records already have the new shape. Preserve edits on reload.
+  const v = old && "location" in source ? source : values;
+  if (validLocation(v.location))
+    clean.location = {
+      province: v.location.province,
+      city: v.location.city.trim(),
+    };
+  for (const key of ["audience", "device", "startTime", "experience"])
+    if (OPTIONS[key].includes(v[key])) clean[key] = v[key];
   for (const key of Object.keys(LIMITS)) {
-    if (Array.isArray(values[key])) {
-      const selected = [
-        ...new Set(values[key].filter((value) => OPTIONS[key].includes(value))),
-      ];
-      const exclusive = selected.find((value) =>
-        EXCLUSIVE[key]?.includes(value),
-      );
-      clean[key] = exclusive ? [exclusive] : selected.slice(0, LIMITS[key]);
-    }
+    const selected = Array.isArray(v[key])
+      ? [...new Set(v[key].filter((item) => OPTIONS[key].includes(item)))]
+      : [];
+    const exclusive = selected.find((item) => EXCLUSIVE[key]?.includes(item));
+    clean[key] = exclusive ? [exclusive] : selected.slice(0, LIMITS[key]);
   }
-  if (!FAMILY_AUDIENCES.includes(clean.audience)) clean.sharedCount = "";
-  clean.deviceModel = deviceNeedsModel(clean.devices)
-    ? text(values.deviceModel, 80)
+  clean.relationship =
+    clean.audience === "其他人" ? text(v.relationship, 30) : "";
+  clean.deviceModel =
+    clean.device === "其他 CPE" ? text(v.deviceModel, 80) : "";
+  clean.usageUnknown = v.usageUnknown === true;
+  clean.usage = clean.usageUnknown ? "" : text(v.usage, 12);
+  for (const [field, parent, option, max] of [
+    ["activityOther", "activities", "其他用途", 80],
+    ["accessOther", "access", "其他方式", 80],
+    ["problemOther", "problems", "其他问题", 100],
+    ["priorityOther", "priorities", "其他方面", 80],
+  ])
+    clean[field] = clean[parent].includes(option) ? text(v[field], max) : "";
+  clean.currentSetup = clean.access.includes("CPE 流量卡")
+    ? text(v.currentSetup, 100)
     : "";
-  if (!clean.devices.includes("家里闲置的 CPE")) clean.idleCount = "";
-  clean.problemOther = clean.problems.includes("其他问题")
-    ? text(values.problemOther, 80)
-    : "";
-  if (!clean.plans.includes("双网络分流或聚合"))
-    clean.aggregationReadiness = "";
-  clean.city = text(values.city, 30);
-  clean.story = text(values.story, 150);
-  clean.liveQuestionOther = clean.liveQuestions.includes("其他问题")
-    ? text(values.liveQuestionOther, 100)
-    : "";
-  clean.feesAccepted = values.feesAccepted === true;
-  clean.consent = values.consent === true;
+  clean.story = text(v.story, 100);
+  clean.experienceStory =
+    clean.experience === "有，想说说" ? text(v.experienceStory, 200) : "";
+  clean.discussion = text(v.discussion, 150);
+  clean.feesAccepted = v.feesAccepted === true;
   return clean;
 }
 export function validateApplication(value) {
   const errors = {};
   const pick = (key, message) => {
     if (!OPTIONS[key].includes(value[key])) errors[key] = message;
+  };
+  const requiredText = (key, message, max) => {
+    if (
+      typeof value[key] !== "string" ||
+      !value[key].trim() ||
+      value[key].length > max
+    )
+      errors[key] = message;
   };
   const multi = (key, message) => {
     const values = value[key];
@@ -270,41 +219,66 @@ export function validateApplication(value) {
     )
       errors[key] = message;
   };
+  if (!validLocation(value.location))
+    errors.location = "请定位或手动选择使用城市";
   pick("audience", "请选择主要给谁使用");
-  if (FAMILY_AUDIENCES.includes(value.audience))
-    pick("sharedCount", "请选择预计共享人数");
-  multi("devices", "请选择准备使用的设备");
-  if (deviceNeedsModel(value.devices) && !value.deviceModel.trim())
-    errors.deviceModel = "请填写具体设备型号";
-  if (value.devices.includes("家里闲置的 CPE"))
-    pick("idleCount", "请选择闲置 CPE 的数量");
-  pick("usage", "请选择实际月用量，不清楚也可以");
+  if (value.audience === "其他人")
+    requiredText("relationship", "请填写使用对象，如父母或朋友", 30);
+  pick("device", "请选择这张卡主要使用的设备");
+  if (value.device === "其他 CPE")
+    requiredText("deviceModel", "请填写设备型号", 80);
+  if (
+    value.usageUnknown !== true &&
+    !(
+      typeof value.usage === "string" &&
+      /^\d+(\.\d{1,2})?$/.test(value.usage.trim()) &&
+      Number.isFinite(Number(value.usage)) &&
+      Number(value.usage) >= 0 &&
+      value.usage.length <= 12
+    )
+  )
+    errors.usage = "请填写每月 GB 用量，或选择暂时不清楚";
+  multi("activities", "请选择平时的流量用途");
+  multi("access", "请选择目前的上网方式");
   multi("problems", "请选择 1—2 个最想解决的问题");
-  if (value.problems.includes("其他问题") && !value.problemOther.trim())
-    errors.problemOther = "简单说说你遇到的问题";
-  pick("unicomExperience", "请选择联通网络的使用体验");
-  multi("habits", "请选择实际的流量使用习惯");
-  multi("plans", "请选择 1—2 种使用方式");
-  if (value.plans.includes("双网络分流或聚合"))
-    pick("aggregationReadiness", "请选择目前的设备和经验情况");
+  for (const [field, parent, option, max, message] of [
+    ["activityOther", "activities", "其他用途", 80, "请补充其他流量用途"],
+    ["accessOther", "access", "其他方式", 80, "请补充目前的上网方式"],
+    ["problemOther", "problems", "其他问题", 100, "请说说你遇到的其他问题"],
+    ["priorityOther", "priorities", "其他方面", 80, "请补充你在意的方面"],
+  ])
+    if (value[parent]?.includes(option)) requiredText(field, message, max);
+  if (value.access?.includes("CPE 流量卡"))
+    requiredText(
+      "currentSetup",
+      "请填写当前设备、套餐；不清楚套餐名称也可以说明",
+      100,
+    );
+  requiredText("story", "请用 100 字以内说说你希望解决的具体问题", 100);
   pick("startTime", "请选择预计开始使用的时间");
-  if (!value.story.trim() || value.story.length > 150)
-    errors.story = "用 150 字以内说说你的真实使用场景";
-  if (!value.feesAccepted) errors.feesAccepted = "请先确认领取和计费说明";
+  multi("priorities", "请选择最在意的 1—2 个方面");
+  pick("experience", "请选择是否有想分享的经历");
+  if (value.experience === "有，想说说")
+    requiredText("experienceStory", "请用 200 字以内分享一次真实经历", 200);
+  requiredText("discussion", "请写下你的疑问或吐槽，没有可填“暂无”", 150);
+  if (!value.feesAccepted) errors.feesAccepted = "请确认领取和计费说明";
   return errors;
 }
 export function completedQuestions(value) {
   const errors = validateApplication(value);
   const groups = [
-    ["audience", "sharedCount"],
-    ["devices", "deviceModel", "idleCount"],
+    ["location"],
+    ["audience", "relationship"],
+    ["device", "deviceModel"],
     ["usage"],
+    ["activities", "activityOther"],
+    ["access", "accessOther", "currentSetup"],
     ["problems", "problemOther"],
-    ["unicomExperience"],
-    ["habits"],
-    ["plans", "aggregationReadiness"],
-    ["startTime"],
     ["story"],
+    ["startTime"],
+    ["priorities", "priorityOther"],
+    ["experience", "experienceStory"],
+    ["discussion"],
   ];
   return groups.filter((fields) => fields.every((key) => !errors[key])).length;
 }
@@ -318,10 +292,14 @@ export function readState(storage) {
   const application = saved?.application
     ? sanitizeApplication(saved.application)
     : null;
+  const previous = application?.previous;
   const accepted =
     application &&
-    (application.schemaVersion < 3
-      ? application.previous && isPreviousSubmission(application.previous)
+    (application.schemaVersion < 4
+      ? previous &&
+        (previous.schemaVersion < 3
+          ? previous.previous && isPreviousSubmission(previous.previous)
+          : !Object.keys(validateV3(previous)).length)
       : !Object.keys(validateApplication(application)).length);
   return {
     signedIn: saved?.signedIn === true,
