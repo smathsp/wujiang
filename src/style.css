@@ -685,84 +685,36 @@ textarea {
   fill: none;
 }
 .intro-art {
-  height: 160px;
-  background: radial-gradient(ellipse at 50% 95%, #e4efcb, #f4f7ee 80%);
-  position: relative;
+  height: 200px;
+  background: #171106;
   overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
-.art-ring {
-  position: absolute;
-  width: 260px;
-  height: 260px;
-  border: 1px solid #dce7ca;
-  border-radius: 50%;
-  top: -14px;
-}
-.art-ring:after {
-  content: "";
-  position: absolute;
-  inset: 29px;
-  border: 1px dashed #dce7c9;
-  border-radius: 50%;
-}
-.little-card {
-  position: relative;
-  width: 173px;
-  height: 108px;
-  border-radius: 10px;
-  background: linear-gradient(120deg, #455137, #222c1a);
-  transform: rotate(-11deg);
-  box-shadow: 5px 14px 20px #34441f2b;
-  border: 1px solid #627649;
-  color: #d3eea6;
-  padding: 14px 17px;
-  margin-top: 9px;
-}
-.little-card b {
+.intro-art img {
   display: block;
-  text-align: right;
-  font-size: 28px;
-  letter-spacing: 7px;
-  font-weight: 550;
-  margin-top: 11px;
-  line-height: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 25%;
 }
-.little-w {
-  display: block;
-  font:
-    600 11px/1 Arial,
-    sans-serif;
+.intro-sheet {
+  background: #fffdf8;
 }
-.little-card small {
-  position: absolute;
-  bottom: 12px;
-  font-size: 6px;
-  color: #aabf8c;
-  letter-spacing: 1px;
+.intro-sheet .sheet-handle {
+  background: #e9c48680;
 }
-.little-chip {
-  display: block;
-  position: absolute;
-  left: 17px;
-  top: 48px;
-  width: 20px;
-  height: 15px;
-  background: linear-gradient(130deg, #c1ce9e, #819565);
-  border: 1px solid #a5b989;
-  border-radius: 3px;
+.intro-sheet .sheet-close {
+  background: #181007a8;
+  color: #f4dbab;
 }
-.little-chip:before {
-  content: "";
-  position: absolute;
-  top: 4px;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: #778b5e;
-  box-shadow: 0 5px #778b5e;
+.intro-sheet .primary-button {
+  background: #302719;
+  color: #fff3d9;
+}
+.intro-sheet .button-arrow {
+  color: #d9b46e;
+}
+.intro-sheet button:focus-visible {
+  outline-color: #b9934f;
 }
 .intro-body {
   padding: 21px 26px max(23px, var(--safe-bottom));
@@ -774,13 +726,13 @@ textarea {
   line-height: 1.5;
 }
 .intro-description {
-  color: #697b58;
+  color: #77674d;
   font-size: 13px;
   line-height: 1.9;
   margin-top: 10px;
 }
 .intro-scenarios {
-  color: #899a78;
+  color: #948368;
   font-size: 12px;
   line-height: 1.9;
   margin-top: 10px;
@@ -800,7 +752,7 @@ textarea {
 }
 .fee-summary > div > span {
   font-size: 10px;
-  color: #a2af94;
+  color: #9c8b6e;
 }
 .fee-summary strong {
   font-size: 19px;
@@ -814,11 +766,11 @@ textarea {
 }
 .fee-plus {
   font-size: 17px;
-  color: #c7d2bb;
+  color: #d0bea0;
 }
 .intro-terms {
   font-size: 10px;
-  color: #9ba98b;
+  color: #9c8a6b;
   line-height: 1.9;
   margin-bottom: 22px;
 }
@@ -1025,7 +977,7 @@ textarea {
     font-size: 22px;
   }
   .intro-art {
-    height: 140px;
+    height: 170px;
   }
   .intro-terms {
     font-size: 10px;

@@ -31,6 +31,7 @@ try {
   };
 }
 const brandIcon = `${import.meta.env.BASE_URL}favicon.svg`;
+const cardArtwork = `${import.meta.env.BASE_URL}images/wujiang-card-reference.png`;
 const state = reactive(readState(storage));
 const editing = ref(false);
 const busy = ref(false);
@@ -247,7 +248,7 @@ onMounted(() => {
   window.addEventListener("popstate", onPopState);
   window.addEventListener("pagehide", onPageHide);
   window.visualViewport?.addEventListener("resize", resizeViewport);
-  if (!state.introSeen) openSheet("intro", false);
+  openSheet("intro", false);
 });
 onBeforeUnmount(() => {
   saveNow();
@@ -448,12 +449,14 @@ onBeforeUnmount(() => {
     @close="closeSheet()"
   >
     <template v-if="displaySheet === 'intro'">
-      <div class="intro-art" aria-hidden="true">
-        <span class="art-ring"></span>
-        <div class="little-card">
-          <span class="little-w">W</span><b>无疆</b
-          ><span class="little-chip"></span><small>5G 加油站</small>
-        </div>
+      <div class="intro-art">
+        <img
+          :src="cardArtwork"
+          alt="无疆卡黑金卡面"
+          width="1254"
+          height="1254"
+          fetchpriority="high"
+        />
       </div>
       <div class="intro-body">
         <h2 id="sheet-title">无疆卡 · 5G 加油站</h2>
