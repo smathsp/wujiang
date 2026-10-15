@@ -264,7 +264,7 @@ onBeforeUnmount(() => {
     <header class="app-header">
       <div class="brand">
         <img :src="brandIcon" width="31" height="31" alt="" /><span
-          >无疆<span class="brand-sub">5G 流站</span></span
+          >无疆<span class="brand-sub">5G 加油站</span></span
         >
       </div>
       <span class="demo-tag">展示版</span>
@@ -453,7 +453,7 @@ onBeforeUnmount(() => {
         <span class="art-ring"></span>
         <div class="little-card">
           <span class="little-w">W</span><b>无疆</b
-          ><span class="little-chip"></span><small>5G 流站</small>
+          ><span class="little-chip"></span><small>5G 加油站</small>
         </div>
       </div>
       <div class="intro-body">
