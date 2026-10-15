@@ -1,0 +1,14 @@
+{
+  "name": "wujiang-card",
+  "version": "1.0.0",
+  "private": true,
+  "description": "无疆卡首批报名 前端展示",
+  "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "build": "node scripts/build.mjs",
+    "preview": "node scripts/serve.mjs --dist"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
