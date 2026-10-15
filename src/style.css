@@ -681,16 +681,13 @@ textarea {
   fill: none;
 }
 .intro-art {
-  height: 200px;
   background: #171106;
-  overflow: hidden;
 }
 .intro-art img {
   display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center 25%;
+  height: auto;
+  object-fit: contain;
 }
 .intro-sheet {
   background: #fffdf8;
@@ -971,9 +968,6 @@ textarea {
   }
   .intro-body h2 {
     font-size: 22px;
-  }
-  .intro-art {
-    height: 170px;
   }
   .intro-terms {
     font-size: 10px;
