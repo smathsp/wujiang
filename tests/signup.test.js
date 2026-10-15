@@ -17,7 +17,7 @@ const valid = () => ({
   ...blankApplication(),
   location: { province: "浙江省", city: "杭州市" },
   audience: "我自己",
-  device: "Ultra",
+  device: ["Ultra"],
   usage: "80",
   activities: ["办公"],
   access: ["手机套餐 / 热点"],
@@ -70,7 +70,7 @@ test("conditional answers required and stale hidden data discarded", () => {
   const v = {
     ...valid(),
     audience: "其他人",
-    device: "其他 CPE",
+    device: ["其他 CPE"],
     activities: ["其他用途"],
     access: ["其他方式", "CPE 流量卡"],
     problems: ["其他问题"],
@@ -172,10 +172,10 @@ test("location stores only valid province/city; municipalities stay city-level",
     result,
   );
 });
-test("existing v3 submissions survive repeated reloads without inventing one device or exact GB", () => {
+test("existing v3 submissions retain multiple devices without inventing exact GB", () => {
   const first = readRecord(old());
   assert.ok(first.application);
-  assert.equal(first.application.device, "");
+  assert.deepEqual(first.application.device, ["Ultra", "其他 CPE"]);
   assert.equal(first.application.usage, "");
   assert.equal(first.application.audience, "自己和家人一起用");
   assert.deepEqual(first.application.previous.devices, old().devices);
@@ -183,7 +183,7 @@ test("existing v3 submissions survive repeated reloads without inventing one dev
   assert.deepEqual(again.application, first.application);
   const draft = sanitizeApplication({
     ...first.draft,
-    device: "其他 CPE",
+    device: ["其他 CPE"],
     deviceModel: "AK68",
     usage: "70",
   });
@@ -244,4 +244,29 @@ test("storage failures are non-fatal", () => {
     ),
     false,
   );
+});
+
+test("device selection accepts both devices, keeps prior single answers, and clears hidden model", () => {
+  const multiple = {
+    ...valid(),
+    device: ["Ultra", "其他 CPE"],
+    deviceModel: "AK68",
+  };
+  assert.deepEqual(validateApplication(multiple), {});
+  assert.deepEqual(readRecord(multiple).application.device, [
+    "Ultra",
+    "其他 CPE",
+  ]);
+  const singleRecord = readRecord({ ...valid(), device: "Ultra" });
+  assert.deepEqual(singleRecord.application.device, ["Ultra"]);
+  assert.deepEqual(readRecord(singleRecord.application).application.device, [
+    "Ultra",
+  ]);
+  const undecided = sanitizeApplication({
+    ...multiple,
+    device: ["Ultra", "其他 CPE", "暂未确定设备"],
+  });
+  assert.deepEqual(undecided.device, ["暂未确定设备"]);
+  assert.equal(undecided.deviceModel, "");
+  assert.ok(validateApplication({ ...multiple, device: [] }).device);
 });

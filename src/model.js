@@ -54,9 +54,11 @@ export const OPTIONS = Object.freeze({
   experience: ["有，想说说", "暂时没有"],
 });
 export const EXCLUSIVE = Object.freeze({
+  device: ["暂未确定设备"],
   problems: ["暂无明显问题，想先了解"],
 });
 export const LIMITS = Object.freeze({
+  device: 2,
   activities: 7,
   access: 5,
   problems: 2,
@@ -82,7 +84,7 @@ export function blankApplication() {
     location: { province: "", city: "" },
     audience: "",
     relationship: "",
-    device: "",
+    device: [],
     deviceModel: "",
     usage: "",
     usageUnknown: false,
@@ -116,14 +118,21 @@ function migrate(previous) {
         : ["父母或长辈", "伴侣或其他家人"].includes(previous.audience)
           ? "其他人"
           : "";
-  const single = previous.devices.length === 1 ? previous.devices[0] : "";
-  const device = single.startsWith("Ultra")
-    ? "Ultra"
-    : ["其他在用的 CPE", "家里闲置的 CPE"].includes(single)
-      ? "其他 CPE"
-      : single === "暂时没有设备"
-        ? "暂未确定设备"
-        : "";
+  const device = [
+    ...new Set(
+      previous.devices
+        .map((value) =>
+          value.startsWith("Ultra")
+            ? "Ultra"
+            : ["其他在用的 CPE", "家里闲置的 CPE"].includes(value)
+              ? "其他 CPE"
+              : value === "暂时没有设备"
+                ? "暂未确定设备"
+                : "",
+        )
+        .filter(Boolean),
+    ),
+  ];
   const problemMap = {
     "家人各买套餐，管理麻烦": OPTIONS.problems[1],
     "游戏、会议或上网不稳定": OPTIONS.problems[5],
@@ -133,7 +142,7 @@ function migrate(previous) {
     audience,
     relationship: audience === "其他人" ? previous.audience : "",
     device,
-    deviceModel: device === "其他 CPE" ? previous.deviceModel : "",
+    deviceModel: device.includes("其他 CPE") ? previous.deviceModel : "",
     problems: previous.problems.map((v) => problemMap[v] || v),
     problemOther: previous.problemOther,
     story: previous.story || prior?.story || "",
@@ -162,19 +171,23 @@ export function sanitizeApplication(input) {
       province: v.location.province,
       city: v.location.city.trim(),
     };
-  for (const key of ["audience", "device", "startTime", "experience"])
+  for (const key of ["audience", "startTime", "experience"])
     if (OPTIONS[key].includes(v[key])) clean[key] = v[key];
   for (const key of Object.keys(LIMITS)) {
-    const selected = Array.isArray(v[key])
-      ? [...new Set(v[key].filter((item) => OPTIONS[key].includes(item)))]
+    // The previous single-device answer remains a valid selection after upgrade.
+    const values =
+      key === "device" && typeof v[key] === "string" ? [v[key]] : v[key];
+    const selected = Array.isArray(values)
+      ? [...new Set(values.filter((item) => OPTIONS[key].includes(item)))]
       : [];
     const exclusive = selected.find((item) => EXCLUSIVE[key]?.includes(item));
     clean[key] = exclusive ? [exclusive] : selected.slice(0, LIMITS[key]);
   }
   clean.relationship =
     clean.audience === "其他人" ? text(v.relationship, 30) : "";
-  clean.deviceModel =
-    clean.device === "其他 CPE" ? text(v.deviceModel, 80) : "";
+  clean.deviceModel = clean.device.includes("其他 CPE")
+    ? text(v.deviceModel, 80)
+    : "";
   clean.usageUnknown = v.usageUnknown === true;
   clean.usage = clean.usageUnknown ? "" : text(v.usage, 12);
   for (const [field, parent, option, max] of [
@@ -224,8 +237,8 @@ export function validateApplication(value) {
   pick("audience", "请选择主要给谁使用");
   if (value.audience === "其他人")
     requiredText("relationship", "请填写使用对象，如父母或朋友", 30);
-  pick("device", "请选择这张卡主要使用的设备");
-  if (value.device === "其他 CPE")
+  multi("device", "请选择准备使用的设备");
+  if (value.device?.includes("其他 CPE"))
     requiredText("deviceModel", "请填写设备型号", 80);
   if (
     value.usageUnknown !== true &&

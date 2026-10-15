@@ -11,8 +11,9 @@ const questions = [
   { key: "audience", title: "无疆卡主要准备给谁使用？" },
   {
     key: "device",
-    title: "这张卡主要准备插在哪台设备上？",
-    hint: "本次每人领取 1 张卡，选择主要使用的设备。",
+    title: "你准备将无疆卡用在哪些设备上？",
+    hint: "可多选。",
+    multiple: true,
   },
   {
     key: "usage",
@@ -79,8 +80,8 @@ const followups = {
   },
   device: {
     key: "deviceModel",
-    when: () => draft.value.device === "其他 CPE",
-    title: "这台 CPE 的具体型号",
+    when: () => draft.value.device.includes("其他 CPE"),
+    title: "其他 CPE 的具体型号",
     placeholder: "如 C2000 Pro、AK68",
     max: 80,
   },
@@ -227,13 +228,12 @@ watch(
     <p
       v-if="
         question.key === 'device' &&
-        !draft.device &&
+        !draft.device.length &&
         draft.previous?.devices?.length
       "
       class="previous-answer"
     >
-      上次填写：{{ draft.previous.devices.join("、") }}。本次领取 1
-      张，请选择主要使用的设备。
+      上次填写：{{ draft.previous.devices.join("、") }}，请确认准备使用的设备。
     </p>
     <Transition name="expand"
       ><div

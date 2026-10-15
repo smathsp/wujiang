@@ -169,8 +169,5 @@ onBeforeUnmount(stopLocating);
       </button>
     </div>
   </div>
-  <p class="field-hint">
-    给家人使用，可手动选择所在城市。定位会将位置发送至 BigDataCloud
-    解析，表单仅保存省市。
-  </p>
+  <p class="field-hint">可定位或手动选择城市。</p>
 </template>

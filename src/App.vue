@@ -54,8 +54,13 @@ watch(view, () => window.scrollTo({ top: 0, behavior: "instant" }), {
 const savedProgress = computed(() => completedQuestions(state.draft));
 const receivedDevice = computed(
   () =>
-    state.application.deviceModel ||
-    state.application.device ||
+    state.application.device
+      .map((device) =>
+        device === "其他 CPE" && state.application.deviceModel
+          ? state.application.deviceModel
+          : device,
+      )
+      .join("、") ||
     state.application.previous?.devices?.join("、") ||
     state.application.previous?.previous?.deviceModel ||
     state.application.previous?.previous?.device ||
@@ -336,9 +341,7 @@ onBeforeUnmount(() => {
                     errors.feesAccepted ? 'feesAccepted-error' : undefined
                   "
                 /><span
-                  >我已了解：<b
-                    >每人领取 1 张卡，卡片免费，邮费 9.9 元，流量另行计费。</b
-                  ></span
+                  >我已了解：<b>卡片免费，邮费 9.9 元，流量另行计费。</b></span
                 ></label
               >
               <p
@@ -444,7 +447,7 @@ onBeforeUnmount(() => {
           可供自己或家人上网，也可与天火卡搭配，用作备用网络。
         </p>
         <div class="fee-summary">
-          <div><span>本次每人领取 1 张</span><strong>卡片免费</strong></div>
+          <div><span>卡片</span><strong>免费领取</strong></div>
           <span class="fee-plus">+</span>
           <div><span>下单邮费</span><strong>¥9.9</strong></div>
         </div>
