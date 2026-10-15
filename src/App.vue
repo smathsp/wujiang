@@ -65,7 +65,7 @@ const receivedDevice = computed(() =>
       "待补充",
 );
 const sheetTitle = computed(() =>
-  displaySheet.value === "intro" ? "把流量，用得刚刚好。" : picker.value.title,
+  displaySheet.value === "intro" ? "无疆卡 · 5G 加油站" : picker.value.title,
 );
 const sheetToken = `wujiang-${Date.now()}`;
 let sheetInHistory = false;
@@ -293,7 +293,6 @@ onBeforeUnmount(() => {
             >
           </button>
           <p class="login-note">演示登录，无需输入账号或密码</p>
-          <span class="batch-pill">首批预计 2,000 张</span>
         </section>
 
         <section
@@ -457,10 +456,13 @@ onBeforeUnmount(() => {
         </div>
       </div>
       <div class="intro-body">
-        <span class="intro-batch">首批预计 2,000 张</span>
-        <h2 id="sheet-title">把流量，用得刚刚好。</h2>
+        <h2 id="sheet-title">无疆卡 · 5G 加油站</h2>
         <p class="intro-description">
-          按需消费，一份流量与家人共享。<br />适合日常上网、家庭共享和备用网络。
+          面向 CPE
+          设备的联通物联网共享流量卡。像给车加油一样，按需购买流量；一人购买套餐，多张共享卡供自己和家人的设备使用。
+        </p>
+        <p class="intro-scenarios">
+          让家人和闲置 CPE 共用流量，也可与天火卡搭配，用作备用网络。
         </p>
         <div class="fee-summary">
           <div><span>卡片</span><strong>免费领取</strong></div>
@@ -468,8 +470,7 @@ onBeforeUnmount(() => {
           <div><span>下单邮费</span><strong>¥9.9</strong></div>
         </div>
         <p class="intro-terms">
-          流量费用另计，不适合频繁测速和持续大流量下载。<br />所有人可报名，Ultra
-          用户、灯牌等级优先参考。
+          流量费用另计，不适合频繁测速和持续大流量下载。
         </p>
         <button class="primary-button" data-initial-focus @click="closeSheet()">
           {{ state.signedIn ? "知道了" : "知道了，去登录"
