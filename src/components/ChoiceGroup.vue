@@ -1,11 +1,13 @@
 <script setup>
 import { computed } from "vue";
+import { toggleChoice } from "../model.js";
 const props = defineProps({
   modelValue: { type: [String, Array], required: true },
   options: { type: Array, required: true },
   name: { type: String, required: true },
   multiple: Boolean,
-  max: { type: Number, default: 2 },
+  max: { type: Number, default: Infinity },
+  exclusive: { type: Array, default: () => [] },
   invalid: Boolean,
 });
 const emit = defineEmits(["update:modelValue"]);
@@ -16,31 +18,37 @@ const selected = (option) =>
   props.multiple
     ? props.modelValue.includes(option)
     : props.modelValue === option;
+const disabled = (option) =>
+  full.value && !selected(option) && !props.exclusive.includes(option);
 function update(option, checked) {
-  if (!props.multiple) {
-    emit("update:modelValue", option);
-    return;
-  }
-  const next = props.modelValue.filter((value) => value !== option);
-  if (checked && next.length < props.max) next.push(option);
-  emit("update:modelValue", next);
+  emit(
+    "update:modelValue",
+    props.multiple
+      ? toggleChoice(
+          props.modelValue,
+          option,
+          checked,
+          props.max,
+          props.exclusive,
+        )
+      : option,
+  );
 }
 </script>
-
 <template>
   <div class="choices" :class="{ 'choices-invalid': invalid }">
     <label
       v-for="option in options"
       :key="option"
       class="choice"
-      :class="{ selected: selected(option), muted: full && !selected(option) }"
+      :class="{ selected: selected(option), muted: disabled(option) }"
     >
       <input
         :type="multiple ? 'checkbox' : 'radio'"
         :name="name"
         :value="option"
         :checked="selected(option)"
-        :disabled="full && !selected(option)"
+        :disabled="disabled(option)"
         :aria-invalid="invalid || undefined"
         :aria-describedby="invalid ? `${name}-error` : undefined"
         @change="update(option, $event.target.checked)"
