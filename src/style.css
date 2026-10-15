@@ -1068,3 +1068,9 @@ textarea {
 .choice.muted input {
   cursor: default;
 }
+.field-hint {
+  font-size: 10px;
+  color: #a0ad91;
+  line-height: 1.8;
+  margin-top: 8px;
+}

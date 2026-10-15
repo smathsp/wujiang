@@ -13,6 +13,7 @@ import ChoiceGroup from "./components/ChoiceGroup.vue";
 import PickerField from "./components/PickerField.vue";
 import {
   OPTIONS,
+  deviceNeedsModel,
   persistState,
   readState,
   sanitizeApplication,
@@ -53,26 +54,31 @@ watch(view, () => window.scrollTo({ top: 0, behavior: "instant" }), {
 const savedProgress = computed(
   () =>
     [
-      !!state.draft.audience,
       !!state.draft.device &&
-        (state.draft.device !== "其他 CPE 设备" ||
+        (!deviceNeedsModel(state.draft.device) ||
           !!state.draft.deviceModel.trim()),
+      !!state.draft.scenario &&
+        (state.draft.scenario !== "其他场景" ||
+          !!state.draft.scenarioOther.trim()),
       !!state.draft.usage,
-      !!state.draft.plans.length,
+      !!state.draft.networkProblem &&
+        (state.draft.networkProblem !== "其他问题" ||
+          !!state.draft.networkProblemOther.trim()),
+      !!state.draft.story.trim(),
     ].filter(Boolean).length,
 );
 const picker = computed(() =>
   displaySheet.value === "device"
     ? {
         key: "device",
-        title: "准备用什么设备？",
-        hint: "选择最符合你情况的一项",
+        title: "你准备使用哪款设备？",
+        hint: "具体适配范围以正式公布为准",
         options: OPTIONS.device,
       }
     : {
         key: "usage",
-        title: "每月大概用多少流量？",
-        hint: "家庭共享请估算合计用量",
+        title: "每月实际使用多少流量？",
+        hint: "参考最近一个月，家庭共享请算合计用量",
         options: OPTIONS.usage,
       },
 );
@@ -106,7 +112,7 @@ watch(
 watch(
   () => state.draft.device,
   (value) => {
-    if (value !== "其他 CPE 设备") state.draft.deviceModel = "";
+    if (!deviceNeedsModel(value)) state.draft.deviceModel = "";
   },
 );
 watch(
@@ -117,6 +123,19 @@ watch(
       if (!currentErrors[key]) delete errors.value[key];
   },
   { deep: true },
+);
+
+watch(
+  () => state.draft.scenario,
+  (value) => {
+    if (value !== "其他场景") state.draft.scenarioOther = "";
+  },
+);
+watch(
+  () => state.draft.networkProblem,
+  (value) => {
+    if (value !== "其他问题") state.draft.networkProblemOther = "";
+  },
 );
 
 function toast(text) {
@@ -170,6 +189,8 @@ function onPopState() {
   }
 }
 function chooseOption(value) {
+  if (picker.value.key === "device" && state.draft.device !== value)
+    state.draft.deviceModel = "";
   state.draft[picker.value.key] = value;
   closeSheet();
 }
@@ -241,7 +262,10 @@ async function submit() {
   busy.value = true;
   await nextTick();
   busyTimer = setTimeout(() => {
-    state.application = sanitizeApplication(state.draft);
+    state.application = sanitizeApplication({
+      ...state.draft,
+      schemaVersion: 2,
+    });
     state.draft = sanitizeApplication(state.application);
     state.updatedAt = new Date().toISOString();
     editing.value = false;
@@ -250,7 +274,7 @@ async function submit() {
   }, 220);
 }
 function onModelEnter() {
-  openSheet("usage");
+  document.querySelector('input[name="scenario"]')?.focus();
 }
 function resizeViewport() {
   keyboardOpen.value = Boolean(
@@ -334,9 +358,9 @@ onBeforeUnmount(() => {
             ><span class="account-note">演示身份</span>
           </div>
           <div class="form-progress" aria-live="polite">
-            <span>选择你的实际情况</span><span>{{ savedProgress }} / 4</span>
+            <span>选择你的实际情况</span><span>{{ savedProgress }} / 5</span>
             <div class="progress-track">
-              <span :style="{ width: `${(savedProgress / 4) * 100}%` }"></span>
+              <span :style="{ width: `${(savedProgress / 5) * 100}%` }"></span>
             </div>
           </div>
           <form
@@ -345,28 +369,9 @@ onBeforeUnmount(() => {
             :aria-busy="busy"
             @submit.prevent="submit"
           >
-            <fieldset class="question" data-field="audience" :disabled="busy">
-              <legend>
-                <span class="question-index">01</span>这张卡主要给谁用？
-              </legend>
-              <ChoiceGroup
-                v-model="state.draft.audience"
-                name="audience"
-                :options="OPTIONS.audience"
-                :invalid="!!errors.audience"
-              />
-              <p
-                v-if="errors.audience"
-                id="audience-error"
-                class="field-error"
-                role="alert"
-              >
-                {{ errors.audience }}
-              </p>
-            </fieldset>
             <fieldset class="question" data-field="device" :disabled="busy">
               <legend>
-                <span class="question-index">02</span>准备用什么设备？
+                <span class="question-index">01</span>你准备使用哪款设备？
               </legend>
               <PickerField
                 :model-value="state.draft.device"
@@ -386,7 +391,7 @@ onBeforeUnmount(() => {
               </p>
               <Transition name="expand"
                 ><div
-                  v-if="state.draft.device === '其他 CPE 设备'"
+                  v-if="deviceNeedsModel(state.draft.device)"
                   class="conditional"
                   data-field="deviceModel"
                 >
@@ -394,8 +399,8 @@ onBeforeUnmount(() => {
                     v-model="state.draft.deviceModel"
                     name="deviceModel"
                     class="field-input"
-                    aria-label="设备型号"
-                    placeholder="填写设备型号，如 C2000 Pro"
+                    aria-label="具体设备型号"
+                    placeholder="填写具体型号，如 C2000 Pro"
                     maxlength="60"
                     enterkeyhint="next"
                     :aria-invalid="!!errors.deviceModel || undefined"
@@ -415,18 +420,66 @@ onBeforeUnmount(() => {
                 </div></Transition
               >
             </fieldset>
+            <fieldset class="question" data-field="scenario" :disabled="busy">
+              <legend>
+                <span class="question-index">02</span>主要使用场景是什么？
+              </legend>
+              <ChoiceGroup
+                v-model="state.draft.scenario"
+                name="scenario"
+                :options="OPTIONS.scenario"
+                :invalid="!!errors.scenario"
+              />
+              <p
+                v-if="errors.scenario"
+                id="scenario-error"
+                class="field-error"
+                role="alert"
+              >
+                {{ errors.scenario }}
+              </p>
+              <Transition name="expand"
+                ><div
+                  v-if="state.draft.scenario === '其他场景'"
+                  class="conditional"
+                  data-field="scenarioOther"
+                >
+                  <input
+                    v-model="state.draft.scenarioOther"
+                    name="scenarioOther"
+                    class="field-input"
+                    aria-label="其他使用场景"
+                    placeholder="简单描述你的使用场景"
+                    maxlength="60"
+                    :aria-invalid="!!errors.scenarioOther || undefined"
+                    :aria-describedby="
+                      errors.scenarioOther ? 'scenarioOther-error' : undefined
+                    "
+                  />
+                  <p
+                    v-if="errors.scenarioOther"
+                    id="scenarioOther-error"
+                    class="field-error"
+                    role="alert"
+                  >
+                    {{ errors.scenarioOther }}
+                  </p>
+                </div></Transition
+              >
+            </fieldset>
             <fieldset class="question" data-field="usage" :disabled="busy">
               <legend>
-                <span class="question-index">03</span>每月大概用多少流量？
+                <span class="question-index">03</span>每月实际使用多少流量？
               </legend>
               <PickerField
                 :model-value="state.draft.usage"
                 name="usage"
-                label="选择月用量"
+                label="选择实际月用量"
                 :invalid="!!errors.usage"
                 :expanded="activeSheet === 'usage'"
                 @open="openSheet('usage')"
               />
+              <p class="field-hint">参考最近一个月，家庭共享请算合计用量。</p>
               <p
                 v-if="errors.usage"
                 id="usage-error"
@@ -436,48 +489,86 @@ onBeforeUnmount(() => {
                 {{ errors.usage }}
               </p>
             </fieldset>
-            <fieldset class="question" data-field="plans" :disabled="busy">
+            <fieldset
+              class="question"
+              data-field="networkProblem"
+              :disabled="busy"
+            >
               <legend>
-                <span class="question-index">04</span>想怎么使用无疆卡？<span
-                  class="short-hint"
-                  >{{
-                    state.draft.plans.length === 2 ? "已选 2 项" : "最多选 2 项"
-                  }}</span
-                >
+                <span class="question-index">04</span
+                >目前最困扰你的网络问题是什么？
               </legend>
               <ChoiceGroup
-                v-model="state.draft.plans"
-                name="plans"
-                :options="OPTIONS.plans"
-                multiple
-                :invalid="!!errors.plans"
+                v-model="state.draft.networkProblem"
+                name="networkProblem"
+                :options="OPTIONS.networkProblem"
+                :invalid="!!errors.networkProblem"
               />
               <p
-                v-if="errors.plans"
-                id="plans-error"
+                v-if="errors.networkProblem"
+                id="networkProblem-error"
                 class="field-error"
                 role="alert"
               >
-                {{ errors.plans }}
+                {{ errors.networkProblem }}
               </p>
+              <Transition name="expand"
+                ><div
+                  v-if="state.draft.networkProblem === '其他问题'"
+                  class="conditional"
+                  data-field="networkProblemOther"
+                >
+                  <input
+                    v-model="state.draft.networkProblemOther"
+                    name="networkProblemOther"
+                    class="field-input"
+                    aria-label="其他网络问题"
+                    placeholder="简单描述你遇到的问题"
+                    maxlength="80"
+                    :aria-invalid="!!errors.networkProblemOther || undefined"
+                    :aria-describedby="
+                      errors.networkProblemOther
+                        ? 'networkProblemOther-error'
+                        : undefined
+                    "
+                  />
+                  <p
+                    v-if="errors.networkProblemOther"
+                    id="networkProblemOther-error"
+                    class="field-error"
+                    role="alert"
+                  >
+                    {{ errors.networkProblemOther }}
+                  </p>
+                </div></Transition
+              >
             </fieldset>
-            <div class="question">
+            <div class="question" data-field="story">
               <label class="field-label" for="story"
-                ><span class="question-index">05</span>说说你的使用场景<span
-                  class="optional"
-                  >选填</span
-                ></label
-              ><textarea
+                ><span class="question-index">05</span
+                >无疆卡最能帮你解决哪个具体问题？</label
+              >
+              <textarea
                 id="story"
                 v-model="state.draft.story"
                 :disabled="busy"
-                maxlength="100"
+                maxlength="150"
                 rows="3"
-                placeholder="比如：给爸妈共享流量，让闲置 CPE 当备用网络。"
+                placeholder="比如：爸妈每月用量不多，想让两台闲置 CPE 共用一份流量。"
+                :aria-invalid="!!errors.story || undefined"
+                :aria-describedby="errors.story ? 'story-error' : undefined"
               ></textarea>
               <div class="character-count">
-                {{ state.draft.story.length }} / 100
+                {{ state.draft.story.length }} / 150
               </div>
+              <p
+                v-if="errors.story"
+                id="story-error"
+                class="field-error"
+                role="alert"
+              >
+                {{ errors.story }}
+              </p>
             </div>
             <div class="confirmation" data-field="feesAccepted">
               <label class="check-row"
@@ -553,23 +644,33 @@ onBeforeUnmount(() => {
           <p class="page-hint">报名信息已保存，<br />请等待首批结果通知。</p>
           <div class="received-info">
             <div class="received-row">
-              <span>主要使用人</span
-              ><span>{{ state.application.audience }}</span>
-            </div>
-            <div class="received-row">
               <span>设备</span
               ><span>{{
-                state.application.device === "其他 CPE 设备"
+                deviceNeedsModel(state.application.device)
                   ? state.application.deviceModel
                   : state.application.device
               }}</span>
             </div>
             <div class="received-row">
-              <span>每月流量</span><span>{{ state.application.usage }}</span>
+              <span>主要场景</span
+              ><span>{{
+                state.application.scenario === "其他场景"
+                  ? state.application.scenarioOther
+                  : state.application.scenario ||
+                    state.application.plans.join("、") ||
+                    "待补充"
+              }}</span>
             </div>
             <div class="received-row">
-              <span>使用方式</span
-              ><span>{{ state.application.plans.join("、") }}</span>
+              <span>实际月用量</span><span>{{ state.application.usage }}</span>
+            </div>
+            <div class="received-row">
+              <span>网络困扰</span
+              ><span>{{
+                state.application.networkProblem === "其他问题"
+                  ? state.application.networkProblemOther
+                  : state.application.networkProblem || "待补充"
+              }}</span>
             </div>
           </div>
           <button class="secondary-button" @click="editApplication">
