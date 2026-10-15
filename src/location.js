@@ -55,3 +55,18 @@ export function locationLabel(value) {
     ? value.city
     : `${value.province} · ${value.city}`;
 }
+
+// Search is local; typed city names never leave the browser.
+const CITY_ENTRIES = Object.entries(REGIONS).flatMap(([province, cities]) =>
+  cities.map((city) => ({ province, city })),
+);
+export function searchCities(query) {
+  const words = String(query || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!words.length) return [];
+  return CITY_ENTRIES.filter((item) =>
+    words.every((word) => `${item.province}${item.city}`.includes(word)),
+  );
+}

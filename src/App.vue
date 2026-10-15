@@ -10,6 +10,7 @@ import {
 } from "vue";
 import BottomSheet from "./components/BottomSheet.vue";
 import RegistrationFields from "./components/RegistrationFields.vue";
+import CityPicker from "./components/CityPicker.vue";
 import {
   CORE_FIELDS,
   completedQuestions,
@@ -75,7 +76,9 @@ const receivedUsage = computed(() =>
         state.application.previous?.previous?.usage ||
         "待补充",
 );
-const sheetTitle = "无疆卡 · 5G 加油站";
+const sheetTitle = computed(() =>
+  displaySheet.value === "city" ? "选择使用城市" : "无疆卡 · 5G 加油站",
+);
 const sheetToken = `wujiang-${Date.now()}`;
 let sheetInHistory = false;
 let historyClosing = false;
@@ -202,12 +205,20 @@ async function submit() {
   if (firstKey) {
     await nextTick();
     const wrapper = document.querySelector(`[data-field="${firstKey}"]`);
-    wrapper
-      ?.querySelector(
+    const control =
+      wrapper?.querySelector(
+        'textarea[aria-invalid="true"], input[aria-invalid="true"]:not([type="radio"]):not([type="checkbox"]):not(:disabled)',
+      ) ||
+      wrapper?.querySelector(
         "input:not(:disabled), button:not(:disabled), textarea, select",
-      )
-      ?.focus({ preventScroll: true });
-    wrapper?.scrollIntoView({
+      );
+    control?.focus({ preventScroll: true });
+    const scrollTarget =
+      wrapper?.getBoundingClientRect().height >
+      (window.visualViewport?.height || window.innerHeight) * 0.7
+        ? control
+        : wrapper;
+    scrollTarget?.scrollIntoView({
       behavior: "instant",
       block: "center",
     });
@@ -228,10 +239,37 @@ async function submit() {
   }, 220);
 }
 function resizeViewport() {
+  const viewport = window.visualViewport;
+  document.documentElement.style.setProperty(
+    "--visual-height",
+    `${viewport?.height || window.innerHeight}px`,
+  );
+  document.documentElement.style.setProperty(
+    "--visual-top",
+    `${viewport?.offsetTop || 0}px`,
+  );
   keyboardOpen.value = Boolean(
     window.visualViewport &&
       window.innerHeight - window.visualViewport.height > 140,
   );
+  if (keyboardOpen.value && !activeSheet.value)
+    nextTick(() => {
+      const input = document.activeElement;
+      if (
+        !input?.matches(
+          'main input:not([type="checkbox"]):not([type="radio"]), main textarea',
+        )
+      )
+        return;
+      const rect = input.getBoundingClientRect();
+      const top = (viewport?.offsetTop || 0) + 12;
+      const bottom =
+        (viewport?.offsetTop || 0) +
+        (viewport?.height || window.innerHeight) -
+        18;
+      if (rect.height < bottom - top && rect.bottom > bottom)
+        window.scrollBy({ top: rect.bottom - bottom, behavior: "instant" });
+    });
 }
 function onPageHide() {
   saveNow();
@@ -240,6 +278,9 @@ onMounted(() => {
   window.addEventListener("popstate", onPopState);
   window.addEventListener("pagehide", onPageHide);
   window.visualViewport?.addEventListener("resize", resizeViewport);
+  window.visualViewport?.addEventListener("scroll", resizeViewport);
+  window.addEventListener("resize", resizeViewport);
+  resizeViewport();
   openSheet("intro", false);
 });
 onBeforeUnmount(() => {
@@ -249,6 +290,8 @@ onBeforeUnmount(() => {
   window.removeEventListener("popstate", onPopState);
   window.removeEventListener("pagehide", onPageHide);
   window.visualViewport?.removeEventListener("resize", resizeViewport);
+  window.visualViewport?.removeEventListener("scroll", resizeViewport);
+  window.removeEventListener("resize", resizeViewport);
 });
 </script>
 
@@ -328,6 +371,7 @@ onBeforeUnmount(() => {
               v-model="state.draft"
               :errors="errors"
               :busy="busy"
+              @open-city="openSheet('city')"
             />
             <div class="confirmation" data-field="feesAccepted">
               <label class="check-row"
@@ -460,6 +504,14 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </template>
+    <CityPicker
+      v-else-if="displaySheet === 'city'"
+      :model-value="state.draft.location"
+      @select="
+        state.draft.location = $event;
+        closeSheet();
+      "
+    />
   </BottomSheet>
   <Transition name="toast"
     ><div v-if="notice" class="toast" role="status">

@@ -638,7 +638,7 @@ textarea {
   position: relative;
   width: 100%;
   max-width: 460px;
-  max-height: calc(100dvh - 16px);
+  max-height: calc(var(--visual-height, 100dvh) - 16px);
   border-radius: 23px 23px 0 0;
   background: #fff;
   color: var(--ink);
@@ -929,7 +929,7 @@ textarea {
   .bottom-sheet {
     border-radius: 21px;
     max-width: 420px;
-    max-height: calc(100dvh - 40px);
+    max-height: calc(var(--visual-height, 100dvh) - 40px);
   }
   .sheet-handle {
     display: none;
@@ -1213,4 +1213,246 @@ textarea {
 .usage-unknown {
   width: fit-content;
   padding-top: 11px;
+}
+
+/* Answer controls keep the original single-page layout. */
+.choice {
+  -webkit-tap-highlight-color: transparent;
+}
+.choice:active {
+  transform: scale(0.985);
+}
+.choices-compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.choices-compact .choice {
+  flex: 0 1 auto;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  gap: 7px;
+}
+.choices-compact .choice > span:first-of-type {
+  flex: initial;
+}
+.choices-compact .choice-indicator {
+  width: 13px;
+  height: 13px;
+}
+.selection-limit {
+  font-size: 11px;
+  line-height: 1.7;
+  color: #9b704d;
+  background: #faf6ee;
+  padding: 8px 11px;
+  margin-top: 8px;
+  border-radius: 8px;
+}
+.answer-textarea {
+  display: block;
+  resize: none;
+  overflow: hidden;
+  max-height: none;
+  min-height: 104px;
+}
+.answer-textarea[aria-invalid="true"] {
+  border-color: #d8b29a;
+}
+.answer-tools {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 36px;
+}
+.answer-tools .character-count {
+  margin: 12px 0 0 auto;
+  white-space: nowrap;
+}
+.answer-example {
+  flex: 1;
+  min-width: 0;
+}
+.answer-example summary {
+  min-height: 44px;
+  width: fit-content;
+  cursor: pointer;
+  color: #809366;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  list-style: none;
+}
+.answer-example summary::after {
+  content: "+";
+  font-size: 15px;
+}
+.answer-example[open] summary::after {
+  content: "−";
+}
+.answer-example summary::-webkit-details-marker {
+  display: none;
+}
+.example-copy {
+  font-size: 11px;
+  line-height: 1.9;
+  color: #8a9878;
+  padding: 11px 13px;
+  background: #f6f8f1;
+  border-radius: 8px;
+}
+.example-copy p + p {
+  margin-top: 9px;
+}
+.quick-answers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+.quick-answers button {
+  min-height: 44px;
+  padding: 9px 11px;
+  border: 1px solid #dfe7d5;
+  border-radius: 8px;
+  background: #fff;
+  color: #7a8c64;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.quick-answers button[aria-pressed="true"] {
+  background: #eaf3df;
+  border-color: #adca8a;
+  color: #526e36;
+}
+.quick-answers button:disabled {
+  opacity: 0.6;
+}
+.quick-answers button span {
+  font-size: 14px;
+}
+.sheet-backdrop {
+  bottom: auto;
+  top: var(--visual-top, 0px);
+  height: var(--visual-height, 100dvh);
+}
+.city-picker {
+  padding: 29px 20px 22px;
+}
+.city-picker h2 {
+  font-size: 20px;
+  margin-right: 36px;
+}
+.city-search {
+  display: flex;
+  align-items: center;
+  border: 1px solid #e0e8d6;
+  border-radius: 10px;
+  margin: 17px 0 12px;
+  background: #f8faf4;
+}
+.city-search > span {
+  font-size: 24px;
+  padding-left: 13px;
+  color: #92a576;
+}
+.city-search input {
+  width: 100%;
+  min-width: 0;
+  min-height: 49px;
+  border: 0;
+  background: transparent;
+  padding: 10px;
+  font-size: 16px;
+  color: var(--ink);
+  outline: none;
+}
+.city-search input::placeholder {
+  color: #a2ae94;
+  font-size: 13px;
+}
+.city-search input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+.city-search:focus-within {
+  outline: 2px solid #d6e6c0;
+}
+.city-search button {
+  border: 0;
+  background: transparent;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 20px;
+  color: #8c9c78;
+}
+.city-list {
+  max-height: min(52dvh, calc(var(--visual-height, 100dvh) - 190px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.city-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 49px;
+  border: 0;
+  border-bottom: 1px solid #eef2e7;
+  background: white;
+  padding: 11px 6px;
+  text-align: left;
+  color: #627a48;
+  font-size: 14px;
+}
+.city-option:active {
+  background: #f0f6e6;
+}
+.city-option small {
+  display: block;
+  font-size: 10px;
+  color: #99a68c;
+  padding-top: 3px;
+}
+.city-option > span:last-child {
+  color: #91a974;
+}
+.city-back {
+  min-height: 44px;
+  width: 100%;
+  background: none;
+  border: 0;
+  padding: 8px 3px 12px;
+  color: #879b70;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+.city-back span {
+  margin-left: auto;
+  color: #5d7643;
+}
+.city-picker .picker-hint {
+  margin: 2px 3px 10px;
+}
+.custom-city label {
+  display: block;
+  font-size: 12px;
+  color: #8b9c78;
+  margin: 8px 0;
+}
+.custom-city .primary-button {
+  margin-top: 14px;
+}
+:where(input, textarea) {
+  scroll-margin-block: 30px 130px;
+}
+.keyboard-open :where(input, textarea) {
+  scroll-margin-block: 20px;
 }

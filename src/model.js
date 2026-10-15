@@ -8,6 +8,8 @@ export { toggleChoice } from "./previous-model-v3.js";
 export const STORAGE_KEY = "wujiang.signup.v1";
 export const OPTIONS = Object.freeze({
   audience: ["我自己", "其他人", "自己和家人一起用"],
+  relationshipKind: ["父母", "伴侣", "其他家人", "朋友", "其他"],
+  discussionChoice: ["有想说的", "暂时没有"],
   device: ["Ultra", "其他 CPE", "暂未确定设备"],
   activities: [
     "打游戏",
@@ -84,6 +86,7 @@ export function blankApplication() {
     location: { province: "", city: "" },
     audience: "",
     relationship: "",
+    relationshipKind: "",
     device: [],
     deviceModel: "",
     usage: "",
@@ -102,6 +105,7 @@ export function blankApplication() {
     experience: "",
     experienceStory: "",
     discussion: "",
+    discussionChoice: "",
     feesAccepted: false,
     previous: null,
   };
@@ -183,8 +187,20 @@ export function sanitizeApplication(input) {
     const exclusive = selected.find((item) => EXCLUSIVE[key]?.includes(item));
     clean[key] = exclusive ? [exclusive] : selected.slice(0, LIMITS[key]);
   }
-  clean.relationship =
-    clean.audience === "其他人" ? text(v.relationship, 30) : "";
+  if (clean.audience === "其他人") {
+    const relationship = text(v.relationship, 30);
+    clean.relationshipKind = OPTIONS.relationshipKind.includes(
+      v.relationshipKind,
+    )
+      ? v.relationshipKind
+      : relationship.trim()
+        ? OPTIONS.relationshipKind.slice(0, -1).includes(relationship)
+          ? relationship
+          : "其他"
+        : "";
+    clean.relationship =
+      clean.relationshipKind === "其他" ? relationship : clean.relationshipKind;
+  }
   clean.deviceModel = clean.device.includes("其他 CPE")
     ? text(v.deviceModel, 80)
     : "";
@@ -203,7 +219,16 @@ export function sanitizeApplication(input) {
   clean.story = text(v.story, 100);
   clean.experienceStory =
     clean.experience === "有，想说说" ? text(v.experienceStory, 200) : "";
-  clean.discussion = text(v.discussion, 150);
+  const discussion = text(v.discussion, 150);
+  clean.discussionChoice = OPTIONS.discussionChoice.includes(v.discussionChoice)
+    ? v.discussionChoice
+    : discussion.trim()
+      ? ["暂无", "暂时没有", "没有", "无"].includes(discussion.trim())
+        ? "暂时没有"
+        : "有想说的"
+      : "";
+  clean.discussion =
+    clean.discussionChoice === "暂时没有" ? "暂无" : discussion;
   clean.feesAccepted = v.feesAccepted === true;
   return clean;
 }
@@ -273,7 +298,12 @@ export function validateApplication(value) {
   pick("experience", "请选择是否有想分享的经历");
   if (value.experience === "有，想说说")
     requiredText("experienceStory", "请用 200 字以内分享一次真实经历", 200);
-  requiredText("discussion", "请写下你的疑问或吐槽，没有可填“暂无”", 150);
+  if (!OPTIONS.discussionChoice.includes(value.discussionChoice))
+    errors.discussion = "请选择是否有想说的";
+  else if (value.discussionChoice === "有想说的")
+    requiredText("discussion", "请写下你的疑问或吐槽", 150);
+  else if (value.discussion !== "暂无")
+    errors.discussion = "请确认是否暂时没有补充";
   if (!value.feesAccepted) errors.feesAccepted = "请确认领取和计费说明";
   return errors;
 }
@@ -329,4 +359,19 @@ export function persistState(state, storage) {
   } catch {
     return false;
   }
+}
+
+export const DEVICE_MODELS = ["C2000 Pro", "C2000 Pro Max", "AK68"];
+export const splitDeviceModels = (value) =>
+  String(value || "")
+    .split(/[、，,；;\n]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+export function toggleDeviceModel(value, model) {
+  const models = splitDeviceModels(value);
+  const next = models.includes(model)
+    ? models.filter((item) => item !== model)
+    : [...models, model];
+  const answer = [...new Set(next)].join("、");
+  return answer.length <= 80 ? answer : null;
 }

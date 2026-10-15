@@ -1,22 +1,11 @@
 <script setup>
-import { computed, onBeforeUnmount, ref } from "vue";
-import {
-  REGIONS,
-  cityFromResult,
-  locationLabel,
-  validLocation,
-} from "../location.js";
+import { onBeforeUnmount, ref } from "vue";
+import { cityFromResult, locationLabel, validLocation } from "../location.js";
 const model = defineModel({ type: Object, required: true });
 defineProps({ invalid: Boolean });
+const emit = defineEmits(["open-city"]);
 const locating = ref(false);
 const message = ref("");
-const manualOpen = ref(false);
-const province = ref("");
-const city = ref("");
-const cities = computed(() => REGIONS[province.value] || []);
-const ready = computed(() =>
-  validLocation({ province: province.value, city: city.value }),
-);
 let request = 0;
 let controller;
 function stopLocating() {
@@ -26,25 +15,13 @@ function stopLocating() {
 }
 function openManual() {
   stopLocating();
-  province.value = model.value.province;
-  city.value = model.value.city;
-  manualOpen.value = true;
-}
-function changeProvince() {
-  city.value = cities.value.length === 1 ? cities.value[0] : "";
-}
-function saveManual() {
-  if (!ready.value) return;
-  stopLocating();
-  model.value = { province: province.value, city: city.value.trim() };
-  manualOpen.value = false;
   message.value = "";
+  emit("open-city");
 }
 async function locate() {
   stopLocating();
   const id = request;
   message.value = "";
-  manualOpen.value = false;
   locating.value = true;
   try {
     if (!navigator.geolocation || !window.isSecureContext)
@@ -89,9 +66,6 @@ async function locate() {
       error.code === 1
         ? "未获得定位权限，请手动选择城市。"
         : "暂时无法定位，请手动选择城市。";
-    province.value = model.value.province;
-    city.value = model.value.city;
-    manualOpen.value = true;
   } finally {
     if (id === request) locating.value = false;
   }
@@ -129,45 +103,6 @@ onBeforeUnmount(stopLocating);
     <p v-if="message" class="field-hint location-status" role="status">
       {{ message }}
     </p>
-    <div v-if="manualOpen" class="city-editor">
-      <label
-        >省份 / 地区<select
-          v-model="province"
-          aria-label="省份或地区"
-          @change="changeProvince"
-        >
-          <option disabled value="">请选择</option>
-          <option v-for="(_, name) in REGIONS" :key="name" :value="name">
-            {{ name }}
-          </option>
-        </select></label
-      >
-      <label
-        >城市<select v-if="cities.length" v-model="city" aria-label="城市">
-          <option disabled value="">请选择</option>
-          <option v-for="item in cities" :key="item" :value="item">
-            {{ item }}
-          </option></select
-        ><input
-          v-else
-          v-model="city"
-          :disabled="!province"
-          aria-label="城市"
-          placeholder="填写城市"
-          maxlength="30"
-      /></label>
-      <button
-        type="button"
-        class="city-confirm"
-        :disabled="!ready"
-        @click="saveManual"
-      >
-        确认城市
-      </button>
-      <button type="button" class="city-cancel" @click="manualOpen = false">
-        取消
-      </button>
-    </div>
   </div>
   <p class="field-hint">可定位或手动选择城市。</p>
 </template>

@@ -10,9 +10,14 @@ import {
   persistState,
   toggleChoice,
   EXCLUSIVE,
+  toggleDeviceModel,
 } from "../src/model.js";
 import { blankApplication as blankV3 } from "../src/previous-model-v3.js";
-import { validLocation, cityFromResult } from "../src/location.js";
+import {
+  validLocation,
+  cityFromResult,
+  searchCities,
+} from "../src/location.js";
 const valid = () => ({
   ...blankApplication(),
   location: { province: "浙江省", city: "杭州市" },
@@ -27,6 +32,7 @@ const valid = () => ({
   priorities: ["费用", "稳定性"],
   experience: "暂时没有",
   discussion: "暂无",
+  discussionChoice: "暂时没有",
   feesAccepted: true,
 });
 const old = () => ({
@@ -269,4 +275,63 @@ test("device selection accepts both devices, keeps prior single answers, and cle
   assert.deepEqual(undecided.device, ["暂未确定设备"]);
   assert.equal(undecided.deviceModel, "");
   assert.ok(validateApplication({ ...multiple, device: [] }).device);
+});
+
+test("quick answers migrate existing text and keep custom answers intact", () => {
+  const legacy = {
+    ...valid(),
+    audience: "其他人",
+    relationship: "同事",
+    relationshipKind: undefined,
+    discussion: "想了解计费",
+    discussionChoice: undefined,
+  };
+  const restored = readRecord(legacy).application;
+  assert.equal(restored.relationshipKind, "其他");
+  assert.equal(restored.relationship, "同事");
+  assert.equal(restored.discussionChoice, "有想说的");
+  assert.equal(restored.discussion, "想了解计费");
+  const quick = sanitizeApplication({
+    ...valid(),
+    audience: "其他人",
+    relationshipKind: "父母",
+    relationship: "旧答案",
+  });
+  assert.equal(quick.relationship, "父母");
+  const custom = sanitizeApplication({
+    ...quick,
+    relationshipKind: "其他",
+    relationship: "",
+  });
+  assert.ok(validateApplication(custom).relationship);
+  const none = sanitizeApplication({
+    ...valid(),
+    discussionChoice: "暂时没有",
+    discussion: "旧意见",
+  });
+  assert.equal(none.discussion, "暂无");
+  assert.deepEqual(validateApplication(none), {});
+  assert.ok(
+    validateApplication({
+      ...none,
+      discussionChoice: "有想说的",
+      discussion: "",
+    }).discussion,
+  );
+});
+test("model shortcuts preserve arbitrary models and do not truncate long answers", () => {
+  assert.equal(toggleDeviceModel("自有设备X", "AK68"), "自有设备X、AK68");
+  assert.equal(toggleDeviceModel("自有设备X、AK68", "AK68"), "自有设备X");
+  assert.equal(toggleDeviceModel("X".repeat(80), "AK68"), null);
+});
+test("city search matches city or province locally, with explicit empty results", () => {
+  assert.deepEqual(searchCities("杭州"), [
+    { province: "浙江省", city: "杭州市" },
+  ]);
+  assert.ok(searchCities("浙江").every((item) => item.province === "浙江省"));
+  assert.deepEqual(searchCities("浙江 杭州"), [
+    { province: "浙江省", city: "杭州市" },
+  ]);
+  assert.deepEqual(searchCities("没有这个城市"), []);
+  assert.deepEqual(searchCities(" "), []);
 });
