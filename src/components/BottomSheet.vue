@@ -86,7 +86,12 @@ onBeforeUnmount(() => {
 <template>
   <Teleport to="body">
     <Transition name="sheet">
-      <div v-if="open" class="sheet-backdrop" @click.self="$emit('close')">
+      <div
+        v-if="open"
+        class="sheet-backdrop"
+        :class="{ 'intro-backdrop': kind === 'intro-sheet' }"
+        @click.self="$emit('close')"
+      >
         <section
           ref="panel"
           class="bottom-sheet"

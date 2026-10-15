@@ -45,8 +45,8 @@ const questions = [
   },
   {
     key: "problems",
-    title: "目前最想解决哪些上网问题？",
-    hint: "最多选 2 项。",
+    title: "你现在遇到了哪些上网问题？",
+    hint: "符合的都可选。",
     multiple: true,
     wide: true,
   },
@@ -132,10 +132,7 @@ const relationshipChoice = computed({
 const discussionChoice = computed({
   get: () => draft.value.discussionChoice,
   set: (value) => {
-    const before = draft.value.discussionChoice;
     draft.value.discussionChoice = value;
-    if (value === "暂时没有") draft.value.discussion = "暂无";
-    else if (before === "暂时没有") draft.value.discussion = "";
   },
 });
 function chooseModel(model) {
@@ -151,7 +148,8 @@ function markSetupUnknown() {
 }
 for (const followup of Object.values(followups))
   watch(followup.when, (visible) => {
-    if (!visible) draft.value[followup.key] = "";
+    if (!visible && followup.key !== "experienceStory")
+      draft.value[followup.key] = "";
   });
 watch(
   () => draft.value.audience,
@@ -273,7 +271,7 @@ watch(
       :class="{ 'choices-wide': question.wide }"
     />
     <p
-      v-if="['problems', 'priorities'].includes(question.key)"
+      v-if="question.key === 'priorities'"
       class="selection-count"
       aria-live="polite"
     >

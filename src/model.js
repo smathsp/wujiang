@@ -63,7 +63,7 @@ export const LIMITS = Object.freeze({
   device: 2,
   activities: 7,
   access: 5,
-  problems: 2,
+  problems: OPTIONS.problems.length,
   priorities: 2,
 });
 export const CORE_FIELDS = [
@@ -154,7 +154,7 @@ function migrate(previous) {
     feesAccepted: previous.feesAccepted,
   };
 }
-export function sanitizeApplication(input) {
+export function sanitizeApplication(input, { preserveDraftText = false } = {}) {
   const source = input && typeof input === "object" ? input : {};
   const old =
     [1, 2, 3].includes(source.schemaVersion) ||
@@ -218,7 +218,9 @@ export function sanitizeApplication(input) {
     : "";
   clean.story = text(v.story, 100);
   clean.experienceStory =
-    clean.experience === "有，想说说" ? text(v.experienceStory, 200) : "";
+    preserveDraftText || clean.experience === "有，想说说"
+      ? text(v.experienceStory, 200)
+      : "";
   const discussion = text(v.discussion, 150);
   clean.discussionChoice = OPTIONS.discussionChoice.includes(v.discussionChoice)
     ? v.discussionChoice
@@ -228,7 +230,9 @@ export function sanitizeApplication(input) {
         : "有想说的"
       : "";
   clean.discussion =
-    clean.discussionChoice === "暂时没有" ? "暂无" : discussion;
+    !preserveDraftText && clean.discussionChoice === "暂时没有"
+      ? "暂无"
+      : discussion;
   clean.feesAccepted = v.feesAccepted === true;
   return clean;
 }
@@ -278,7 +282,7 @@ export function validateApplication(value) {
     errors.usage = "请填写每月 GB 用量，或选择暂时不清楚";
   multi("activities", "请选择平时的流量用途");
   multi("access", "请选择目前的上网方式");
-  multi("problems", "请选择 1—2 个最想解决的问题");
+  multi("problems", "请选择遇到的问题，也可选择暂无明显问题");
   for (const [field, parent, option, max, message] of [
     ["activityOther", "activities", "其他用途", 80, "请补充其他流量用途"],
     ["accessOther", "access", "其他方式", 80, "请补充目前的上网方式"],
@@ -302,8 +306,6 @@ export function validateApplication(value) {
     errors.discussion = "请选择是否有想说的";
   else if (value.discussionChoice === "有想说的")
     requiredText("discussion", "请写下你的疑问或吐槽", 150);
-  else if (value.discussion !== "暂无")
-    errors.discussion = "请确认是否暂时没有补充";
   if (!value.feesAccepted) errors.feesAccepted = "请确认领取和计费说明";
   return errors;
 }
@@ -348,7 +350,7 @@ export function readState(storage) {
     signedIn: saved?.signedIn === true,
     introSeen: saved?.introSeen === true,
     application: accepted ? application : null,
-    draft: sanitizeApplication(saved?.draft),
+    draft: sanitizeApplication(saved?.draft, { preserveDraftText: true }),
     updatedAt: typeof saved?.updatedAt === "string" ? saved.updatedAt : null,
   };
 }

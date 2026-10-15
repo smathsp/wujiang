@@ -11,6 +11,8 @@ import {
   toggleChoice,
   EXCLUSIVE,
   toggleDeviceModel,
+  OPTIONS,
+  LIMITS,
 } from "../src/model.js";
 import { blankApplication as blankV3 } from "../src/previous-model-v3.js";
 import {
@@ -115,7 +117,7 @@ test("numeric monthly use supports zero and decimals; rejects invalid values; un
     "",
   );
 });
-test("two-choice limit and no-problem exclusivity survive restoration", () => {
+test("priorities remain limited to two; multiple problems and exclusivity survive restoration", () => {
   assert.ok(
     validateApplication({ ...valid(), priorities: ["费用", "速度", "售后"] })
       .priorities,
@@ -124,6 +126,22 @@ test("two-choice limit and no-problem exclusivity survive restoration", () => {
     "费用",
     "速度",
   ]);
+  const problems = OPTIONS.problems.slice(0, 5);
+  assert.deepEqual(validateApplication({ ...valid(), problems }), {});
+  assert.deepEqual(
+    readRecord({ ...valid(), problems }).application.problems,
+    problems,
+  );
+  assert.deepEqual(
+    toggleChoice(
+      problems.slice(0, 2),
+      problems[2],
+      true,
+      LIMITS.problems,
+      EXCLUSIVE.problems,
+    ),
+    problems.slice(0, 3),
+  );
   assert.deepEqual(
     toggleChoice(
       ["其他问题"],
@@ -150,6 +168,37 @@ test("two-choice limit and no-problem exclusivity survive restoration", () => {
     }).problemOther,
     "",
   );
+});
+test("hidden long answers survive draft reload but are omitted from the submitted response", () => {
+  const draft = {
+    ...valid(),
+    discussionChoice: "暂时没有",
+    discussion: "希望了解单 GB 费用和流量提醒。",
+    experience: "暂时没有",
+    experienceStory: "出差开会时网络断了，希望备用卡能随时用。",
+  };
+  let stored;
+  const storage = {
+    getItem: () => stored,
+    setItem: (_key, value) => {
+      stored = value;
+    },
+  };
+  assert.equal(persistState({ signedIn: true, draft }, storage), true);
+  const restored = readState(storage).draft;
+  assert.equal(restored.discussion, draft.discussion);
+  assert.equal(restored.experienceStory, draft.experienceStory);
+  assert.deepEqual(validateApplication(restored), {});
+  restored.discussionChoice = "有想说的";
+  restored.experience = "有，想说说";
+  assert.deepEqual(validateApplication(restored), {});
+  restored.discussionChoice = "暂时没有";
+  restored.experience = "暂时没有";
+  const submitted = sanitizeApplication(restored);
+  assert.equal(submitted.discussion, "暂无");
+  assert.equal(submitted.experienceStory, "");
+  assert.equal(restored.discussion, draft.discussion);
+  assert.equal(restored.experienceStory, draft.experienceStory);
 });
 test("location stores only valid province/city; municipalities stay city-level", () => {
   assert.equal(validLocation({ province: "浙江省", city: "北京市" }), false);

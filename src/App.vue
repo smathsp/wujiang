@@ -31,7 +31,6 @@ try {
     },
   };
 }
-const brandIcon = `${import.meta.env.BASE_URL}favicon.svg`;
 const cardArtwork = `${import.meta.env.BASE_URL}images/wujiang-card-reference.png`;
 const state = reactive(readState(storage));
 const editing = ref(false);
@@ -297,15 +296,6 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="app-shell" :inert="activeSheet !== null">
-    <header class="app-header">
-      <div class="brand">
-        <img :src="brandIcon" width="31" height="31" alt="" /><span
-          >无疆<span class="brand-sub">5G 加油站</span></span
-        >
-      </div>
-      <span class="demo-tag">展示版</span>
-      <button class="text-button" @click="openSheet('intro')">卡片介绍</button>
-    </header>
     <main>
       <Transition name="page" mode="out-in" @after-enter="focusView">
         <section v-if="view === 'login'" key="login" class="login-view">
@@ -329,6 +319,9 @@ onBeforeUnmount(() => {
             >
           </button>
           <p class="login-note">演示登录，无需输入账号或密码</p>
+          <button class="text-button" @click="openSheet('intro')">
+            卡片介绍
+          </button>
         </section>
 
         <section
@@ -339,16 +332,22 @@ onBeforeUnmount(() => {
         >
           <div class="form-heading">
             <h1 class="page-heading" tabindex="-1">
-              {{ state.application ? "修改报名信息" : "填写报名信息" }}
+              {{ state.application ? "修改报名信息" : "无疆卡报名" }}
             </h1>
-            <button class="logout" :disabled="busy" @click="signOut">
-              退出
+            <button
+              class="text-button"
+              :disabled="busy"
+              @click="openSheet('intro')"
+            >
+              卡片介绍
             </button>
           </div>
           <div class="account-strip">
             <span class="account-chip">✓ Ultra 已购</span
-            ><span class="account-chip">灯牌 12 级</span
-            ><span class="account-note">演示身份</span>
+            ><span class="account-chip">灯牌 12 级</span>
+            <button class="logout" :disabled="busy" @click="signOut">
+              退出
+            </button>
           </div>
           <div class="form-progress" aria-live="polite">
             <span>按实际情况填写 · 全部必填 · 自动保存</span
@@ -459,6 +458,9 @@ onBeforeUnmount(() => {
           <button class="secondary-button" @click="editApplication">
             修改报名信息</button
           ><button class="logout" @click="signOut">退出登录</button>
+          <button class="text-button" @click="openSheet('intro')">
+            卡片介绍
+          </button>
         </section>
       </Transition>
     </main>
@@ -472,32 +474,44 @@ onBeforeUnmount(() => {
     @close="closeSheet()"
   >
     <template v-if="displaySheet === 'intro'">
-      <div class="intro-art">
-        <img
-          :src="cardArtwork"
-          alt="无疆卡黑金卡面"
-          width="1254"
-          height="1254"
-          fetchpriority="high"
-        />
-      </div>
-      <div class="intro-body">
-        <h2 id="sheet-title">无疆卡 · 5G 加油站</h2>
-        <p class="intro-description">
-          面向 CPE
-          设备的联通物联网共享流量卡。像给车加油一样，按需购买流量，用多少付多少。
-        </p>
-        <p class="intro-scenarios">
-          可供自己或家人上网，也可与天火卡搭配，用作备用网络。
-        </p>
-        <div class="fee-summary">
-          <div><span>卡片</span><strong>免费领取</strong></div>
-          <span class="fee-plus">+</span>
-          <div><span>下单邮费</span><strong>¥9.9</strong></div>
+      <div class="intro-content">
+        <div class="intro-heading">
+          <a
+            class="intro-art"
+            :href="cardArtwork"
+            target="_blank"
+            rel="noopener"
+            aria-label="查看完整卡面大图（新窗口）"
+          >
+            <img
+              :src="cardArtwork"
+              alt="无疆卡黑金卡面"
+              width="1254"
+              height="1254"
+              fetchpriority="high"
+            />
+            <span>查看大图 ↗</span>
+          </a>
+          <h2 id="sheet-title">无疆卡<span>5G 加油站</span></h2>
         </div>
-        <p class="intro-terms">
-          流量费用另计，不适合频繁测速和持续大流量下载。
-        </p>
+        <div class="intro-body">
+          <p class="intro-description">
+            面向 CPE
+            的联通物联网共享流量卡。像给车加油，按需购买流量，用多少付多少。
+          </p>
+          <p class="intro-scenarios">
+            可供自己或家人上网，也可与天火卡搭配，用作备用网络。
+          </p>
+          <div class="fee-summary">
+            <div><span>卡片</span><strong>免费领取</strong></div>
+            <div><span>下单邮费</span><strong>¥9.9</strong></div>
+          </div>
+          <p class="intro-terms">
+            流量费用另计，不适合频繁测速和持续大流量下载。
+          </p>
+        </div>
+      </div>
+      <div class="intro-actions">
         <button class="primary-button" data-initial-focus @click="closeSheet()">
           {{ state.signedIn ? "知道了" : "知道了，去登录"
           }}<span class="button-arrow" aria-hidden="true">↗</span>
