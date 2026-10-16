@@ -5,11 +5,13 @@ defineOptions({ inheritAttrs: false });
 const props = defineProps({
   modelValue: { type: [String, Array], required: true },
   options: { type: Array, required: true },
+  labels: { type: Object, default: () => ({}) },
   name: { type: String, required: true },
   multiple: Boolean,
   max: { type: Number, default: Infinity },
   exclusive: { type: Array, default: () => [] },
   invalid: Boolean,
+  errorId: { type: String, default: "" },
   compact: Boolean,
 });
 const emit = defineEmits(["update:modelValue"]);
@@ -70,11 +72,15 @@ function update(option, event) {
         :checked="selected(option)"
         :aria-invalid="invalid || undefined"
         :aria-describedby="
-          invalid ? `${name}-error` : limitMessage ? `${name}-limit` : undefined
+          invalid
+            ? errorId || `${name}-error`
+            : limitMessage
+              ? `${name}-limit`
+              : undefined
         "
         @change="update(option, $event)"
       />
-      <span>{{ option }}</span
+      <span>{{ labels[option] || option }}</span
       ><span class="choice-indicator" aria-hidden="true">{{
         selected(option) ? "✓" : ""
       }}</span>

@@ -11,6 +11,7 @@ import {
 import BottomSheet from "./components/BottomSheet.vue";
 import RegistrationFields from "./components/RegistrationFields.vue";
 import CityPicker from "./components/CityPicker.vue";
+import { deviceAnswerLabel } from "./devices.js";
 import {
   CORE_FIELDS,
   completedQuestions,
@@ -54,13 +55,7 @@ watch(view, () => window.scrollTo({ top: 0, behavior: "instant" }), {
 const savedProgress = computed(() => completedQuestions(state.draft));
 const receivedDevice = computed(
   () =>
-    state.application.device
-      .map((device) =>
-        device === "其他 CPE" && state.application.deviceModel
-          ? state.application.deviceModel
-          : device,
-      )
-      .join("、") ||
+    deviceAnswerLabel(state.application) ||
     state.application.previous?.devices?.join("、") ||
     state.application.previous?.previous?.deviceModel ||
     state.application.previous?.previous?.device ||

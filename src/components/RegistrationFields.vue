@@ -1,28 +1,21 @@
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, watch } from "vue";
 import ChoiceGroup from "./ChoiceGroup.vue";
 import QuestionField from "./QuestionField.vue";
 import LocationCard from "./LocationCard.vue";
 import AutoTextarea from "./AutoTextarea.vue";
-import {
-  OPTIONS,
-  EXCLUSIVE,
-  LIMITS,
-  DEVICE_MODELS,
-  splitDeviceModels,
-  toggleDeviceModel,
-} from "../model.js";
+import DevicePicker from "./DevicePicker.vue";
+import { OPTIONS, EXCLUSIVE, LIMITS } from "../model.js";
 const draft = defineModel({ type: Object, required: true });
 defineProps({ errors: { type: Object, default: () => ({}) }, busy: Boolean });
 defineEmits(["open-city"]);
-const deviceNotice = ref("");
 const questions = [
   { key: "location", title: "这张卡主要准备在哪个城市使用？" },
   { key: "audience", title: "无疆卡主要准备给谁使用？" },
   {
     key: "device",
     title: "你准备将无疆卡用在哪些设备上？",
-    hint: "可多选。",
+    hint: "可多选，点开系列选择型号。",
     multiple: true,
   },
   {
@@ -135,11 +128,6 @@ const discussionChoice = computed({
     draft.value.discussionChoice = value;
   },
 });
-function chooseModel(model) {
-  const next = toggleDeviceModel(draft.value.deviceModel, model);
-  deviceNotice.value = next === null ? "型号较多，请在输入框中简写。" : "";
-  if (next !== null) draft.value.deviceModel = next;
-}
 function markSetupUnknown() {
   const value = draft.value.currentSetup.trim();
   if (value.includes("套餐名称不清楚")) return;
@@ -157,15 +145,6 @@ watch(
     if (value !== "其他人") {
       draft.value.relationship = "";
       draft.value.relationshipKind = "";
-    }
-  },
-);
-watch(
-  () => draft.value.device.includes("其他 CPE"),
-  (visible) => {
-    if (!visible) {
-      draft.value.deviceModel = "";
-      deviceNotice.value = "";
     }
   },
 );
@@ -198,6 +177,11 @@ watch(
       v-model="draft.location"
       :invalid="!!errors.location"
       @open-city="$emit('open-city')"
+    />
+    <DevicePicker
+      v-else-if="question.key === 'device'"
+      v-model="draft"
+      :errors="errors"
     />
     <template v-else-if="question.key === 'usage'">
       <label
@@ -306,47 +290,6 @@ watch(
             errors.relationship ? 'relationship-error' : undefined
           "
         />
-      </QuestionField>
-    </div>
-    <div
-      v-if="question.key === 'device' && draft.device.includes('其他 CPE')"
-      class="conditional follow-up-wrap"
-    >
-      <QuestionField
-        sub
-        name="deviceModel"
-        title="其他 CPE 的具体型号"
-        hint="可填写多个，也可点选常见型号。"
-        :error="errors.deviceModel"
-      >
-        <input
-          v-model="draft.deviceModel"
-          class="field-input"
-          aria-label="其他 CPE 的具体型号"
-          placeholder="输入型号，如 C2000 Pro、AK68"
-          maxlength="80"
-          :aria-invalid="!!errors.deviceModel || undefined"
-          :aria-describedby="
-            errors.deviceModel ? 'deviceModel-error' : undefined
-          "
-        />
-        <div class="quick-answers">
-          <button
-            v-for="model in DEVICE_MODELS"
-            :key="model"
-            type="button"
-            :aria-pressed="splitDeviceModels(draft.deviceModel).includes(model)"
-            @click="chooseModel(model)"
-          >
-            {{ model
-            }}<span aria-hidden="true">{{
-              splitDeviceModels(draft.deviceModel).includes(model) ? "✓" : "+"
-            }}</span>
-          </button>
-        </div>
-        <p v-if="deviceNotice" class="field-hint" role="status">
-          {{ deviceNotice }}
-        </p>
       </QuestionField>
     </div>
     <Transition name="expand"

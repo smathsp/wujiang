@@ -4,13 +4,18 @@ import {
 } from "./previous-model-v3.js";
 import { isPreviousSubmission } from "./legacy-model.js";
 import { validLocation } from "./location.js";
+import {
+  DEVICE_OPTIONS,
+  DEVICE_OTHER_FIELDS,
+  sanitizeDevices,
+} from "./devices.js";
 export { toggleChoice } from "./previous-model-v3.js";
 export const STORAGE_KEY = "wujiang.signup.v1";
 export const OPTIONS = Object.freeze({
   audience: ["我自己", "其他人", "自己和家人一起用"],
   relationshipKind: ["父母", "伴侣", "其他家人", "朋友", "其他"],
   discussionChoice: ["有想说的", "暂时没有"],
-  device: ["Ultra", "其他 CPE", "暂未确定设备"],
+  device: DEVICE_OPTIONS,
   activities: [
     "打游戏",
     "看视频、追剧",
@@ -56,11 +61,10 @@ export const OPTIONS = Object.freeze({
   experience: ["有，想说说", "暂时没有"],
 });
 export const EXCLUSIVE = Object.freeze({
-  device: ["暂未确定设备"],
   problems: ["暂无明显问题，想先了解"],
 });
 export const LIMITS = Object.freeze({
-  device: 2,
+  device: DEVICE_OPTIONS.length,
   activities: 7,
   access: 5,
   problems: OPTIONS.problems.length,
@@ -89,6 +93,9 @@ export function blankApplication() {
     relationshipKind: "",
     device: [],
     deviceModel: "",
+    deviceOtherC2000: "",
+    deviceOtherAK68: "",
+    deviceOtherC8: "",
     usage: "",
     usageUnknown: false,
     activities: [],
@@ -178,9 +185,8 @@ export function sanitizeApplication(input, { preserveDraftText = false } = {}) {
   for (const key of ["audience", "startTime", "experience"])
     if (OPTIONS[key].includes(v[key])) clean[key] = v[key];
   for (const key of Object.keys(LIMITS)) {
-    // The previous single-device answer remains a valid selection after upgrade.
-    const values =
-      key === "device" && typeof v[key] === "string" ? [v[key]] : v[key];
+    if (key === "device") continue;
+    const values = v[key];
     const selected = Array.isArray(values)
       ? [...new Set(values.filter((item) => OPTIONS[key].includes(item)))]
       : [];
@@ -201,9 +207,7 @@ export function sanitizeApplication(input, { preserveDraftText = false } = {}) {
     clean.relationship =
       clean.relationshipKind === "其他" ? relationship : clean.relationshipKind;
   }
-  clean.deviceModel = clean.device.includes("其他 CPE")
-    ? text(v.deviceModel, 80)
-    : "";
+  Object.assign(clean, sanitizeDevices(v, preserveDraftText));
   clean.usageUnknown = v.usageUnknown === true;
   clean.usage = clean.usageUnknown ? "" : text(v.usage, 12);
   for (const [field, parent, option, max] of [
@@ -267,8 +271,9 @@ export function validateApplication(value) {
   if (value.audience === "其他人")
     requiredText("relationship", "请填写使用对象，如父母或朋友", 30);
   multi("device", "请选择准备使用的设备");
-  if (value.device?.includes("其他 CPE"))
-    requiredText("deviceModel", "请填写设备型号", 80);
+  for (const { option, field, title } of DEVICE_OTHER_FIELDS)
+    if (value.device?.includes(option))
+      requiredText(field, `请填写${title}`, 80);
   if (
     value.usageUnknown !== true &&
     !(
@@ -314,7 +319,7 @@ export function completedQuestions(value) {
   const groups = [
     ["location"],
     ["audience", "relationship"],
-    ["device", "deviceModel"],
+    ["device", ...DEVICE_OTHER_FIELDS.map((item) => item.field)],
     ["usage"],
     ["activities", "activityOther"],
     ["access", "accessOther", "currentSetup"],
@@ -361,19 +366,4 @@ export function persistState(state, storage) {
   } catch {
     return false;
   }
-}
-
-export const DEVICE_MODELS = ["C2000 Pro", "C2000 Pro Max", "AK68"];
-export const splitDeviceModels = (value) =>
-  String(value || "")
-    .split(/[、，,；;\n]+/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-export function toggleDeviceModel(value, model) {
-  const models = splitDeviceModels(value);
-  const next = models.includes(model)
-    ? models.filter((item) => item !== model)
-    : [...models, model];
-  const answer = [...new Set(next)].join("、");
-  return answer.length <= 80 ? answer : null;
 }

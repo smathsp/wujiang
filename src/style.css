@@ -1199,6 +1199,63 @@ textarea {
 }
 
 /* Answer controls keep the original single-page layout. */
+.device-picker {
+  display: grid;
+  gap: 10px;
+}
+.device-series {
+  border: 1px solid #e1e7d8;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.device-series summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 54px;
+  padding: 12px 14px;
+  list-style: none;
+  cursor: pointer;
+  color: #526939;
+}
+.device-series summary::-webkit-details-marker {
+  display: none;
+}
+.device-series summary:focus-visible {
+  outline: 2px solid #7c9d54;
+  outline-offset: -3px;
+}
+.device-series-title {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 550;
+}
+.device-series-selection {
+  margin-left: auto;
+  color: #91a17d;
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.device-series-arrow {
+  transition: transform 0.15s;
+  flex-shrink: 0;
+  color: #91a17d;
+}
+.device-series[open] {
+  background: #fafcf6;
+  border-color: #d4e0c4;
+}
+.device-series[open] .device-series-arrow {
+  transform: rotate(180deg);
+}
+.device-series-body {
+  padding: 0 13px 14px;
+}
+.device-other-field {
+  margin: 12px 0 0;
+}
 .choice {
   -webkit-tap-highlight-color: transparent;
 }

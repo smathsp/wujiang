@@ -10,10 +10,15 @@ import {
   persistState,
   toggleChoice,
   EXCLUSIVE,
-  toggleDeviceModel,
   OPTIONS,
   LIMITS,
 } from "../src/model.js";
+import {
+  DEVICE_GROUPS,
+  DEVICE_OPTIONS,
+  DEVICE_OTHER_FIELDS,
+  deviceAnswerLabel,
+} from "../src/devices.js";
 import { blankApplication as blankV3 } from "../src/previous-model-v3.js";
 import {
   validLocation,
@@ -24,7 +29,7 @@ const valid = () => ({
   ...blankApplication(),
   location: { province: "浙江省", city: "杭州市" },
   audience: "我自己",
-  device: ["Ultra"],
+  device: ["C2000 Ultra"],
   usage: "80",
   activities: ["办公"],
   access: ["手机套餐 / 热点"],
@@ -78,7 +83,7 @@ test("conditional answers required and stale hidden data discarded", () => {
   const v = {
     ...valid(),
     audience: "其他人",
-    device: ["其他 CPE"],
+    device: ["其他"],
     activities: ["其他用途"],
     access: ["其他方式", "CPE 流量卡"],
     problems: ["其他问题"],
@@ -230,7 +235,7 @@ test("location stores only valid province/city; municipalities stay city-level",
 test("existing v3 submissions retain multiple devices without inventing exact GB", () => {
   const first = readRecord(old());
   assert.ok(first.application);
-  assert.deepEqual(first.application.device, ["Ultra", "其他 CPE"]);
+  assert.deepEqual(first.application.device, ["C2000 Ultra", "其他"]);
   assert.equal(first.application.usage, "");
   assert.equal(first.application.audience, "自己和家人一起用");
   assert.deepEqual(first.application.previous.devices, old().devices);
@@ -238,7 +243,7 @@ test("existing v3 submissions retain multiple devices without inventing exact GB
   assert.deepEqual(again.application, first.application);
   const draft = sanitizeApplication({
     ...first.draft,
-    device: ["其他 CPE"],
+    device: ["其他"],
     deviceModel: "AK68",
     usage: "70",
   });
@@ -301,28 +306,41 @@ test("storage failures are non-fatal", () => {
   );
 });
 
-test("device selection accepts both devices, keeps prior single answers, and clears hidden model", () => {
+test("device migration keeps prior single and freeform answers without guessing ambiguous models", () => {
   const multiple = {
     ...valid(),
     device: ["Ultra", "其他 CPE"],
     deviceModel: "AK68",
   };
-  assert.deepEqual(validateApplication(multiple), {});
   assert.deepEqual(readRecord(multiple).application.device, [
-    "Ultra",
-    "其他 CPE",
+    "C2000 Ultra",
+    "其他",
   ]);
+  assert.equal(readRecord(multiple).application.deviceModel, "AK68");
   const singleRecord = readRecord({ ...valid(), device: "Ultra" });
-  assert.deepEqual(singleRecord.application.device, ["Ultra"]);
+  assert.deepEqual(singleRecord.application.device, ["C2000 Ultra"]);
   assert.deepEqual(readRecord(singleRecord.application).application.device, [
-    "Ultra",
+    "C2000 Ultra",
   ]);
   const undecided = sanitizeApplication({
     ...multiple,
     device: ["Ultra", "其他 CPE", "暂未确定设备"],
   });
-  assert.deepEqual(undecided.device, ["暂未确定设备"]);
-  assert.equal(undecided.deviceModel, "");
+  assert.deepEqual(undecided.device, ["其他"]);
+  assert.equal(undecided.deviceModel, "暂未确定设备");
+  const mixed = readRecord({
+    ...valid(),
+    device: ["Ultra", "其他 CPE"],
+    deviceModel: "C2000 Pro、AK68-788、C2000 Pro Max",
+  }).application;
+  assert.deepEqual(mixed.device, [
+    "C2000 Ultra",
+    "C2000 Pro",
+    "AK-68 788",
+    "其他",
+  ]);
+  assert.equal(mixed.deviceModel, "C2000 Pro Max");
+  assert.deepEqual(readRecord(mixed).application, mixed);
   assert.ok(validateApplication({ ...multiple, device: [] }).device);
 });
 
@@ -368,10 +386,34 @@ test("quick answers migrate existing text and keep custom answers intact", () =>
     }).discussion,
   );
 });
-test("model shortcuts preserve arbitrary models and do not truncate long answers", () => {
-  assert.equal(toggleDeviceModel("自有设备X", "AK68"), "自有设备X、AK68");
-  assert.equal(toggleDeviceModel("自有设备X、AK68", "AK68"), "自有设备X");
-  assert.equal(toggleDeviceModel("X".repeat(80), "AK68"), null);
+test("all device series support multiple models and require each selected custom model", () => {
+  assert.deepEqual(
+    DEVICE_GROUPS.map((group) => group.title),
+    ["C2000 系列", "AK-68 系列", "C8 系列"],
+  );
+  const answer = { ...valid(), device: [...DEVICE_OPTIONS] };
+  for (const { field } of DEVICE_OTHER_FIELDS)
+    assert.ok(validateApplication(answer)[field], field);
+  assert.equal(completedQuestions(answer), 11);
+  for (const { field } of DEVICE_OTHER_FIELDS) answer[field] = `自填${field}`;
+  assert.deepEqual(validateApplication(answer), {});
+  const restored = readRecord(answer).application;
+  assert.deepEqual(restored.device, DEVICE_OPTIONS);
+  for (const { field } of DEVICE_OTHER_FIELDS)
+    assert.equal(restored[field], answer[field]);
+  assert.match(deviceAnswerLabel(restored), /C2000（自填deviceOtherC2000）/);
+  assert.match(deviceAnswerLabel(restored), /NBCPE/);
+  const hidden = { ...answer, device: ["NBCPE"] };
+  const draft = readState({
+    getItem: () => JSON.stringify({ draft: hidden }),
+  }).draft;
+  for (const { field } of DEVICE_OTHER_FIELDS)
+    assert.equal(draft[field], answer[field]);
+  const submitted = sanitizeApplication(draft);
+  for (const { field } of DEVICE_OTHER_FIELDS)
+    assert.equal(submitted[field], "");
+  assert.deepEqual(validateApplication(submitted), {});
+  assert.deepEqual(submitted.device, ["NBCPE"]);
 });
 test("city search matches city or province locally, with explicit empty results", () => {
   assert.deepEqual(searchCities("杭州"), [
