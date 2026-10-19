@@ -5,7 +5,6 @@ defineProps({
   name: String,
   label: String,
   placeholder: String,
-  max: Number,
   invalid: Boolean,
   examples: { type: Array, default: () => [] },
 });
@@ -39,7 +38,6 @@ onBeforeUnmount(() => observer?.disconnect());
       class="answer-textarea"
       :name="name"
       :aria-label="label"
-      :maxlength="max"
       rows="3"
       :placeholder="placeholder"
       :aria-invalid="invalid || undefined"
@@ -52,7 +50,6 @@ onBeforeUnmount(() => observer?.disconnect());
           <p v-for="example in examples" :key="example">{{ example }}</p>
         </div>
       </details>
-      <span class="character-count">{{ model.length }} / {{ max }}</span>
     </div>
   </div>
 </template>

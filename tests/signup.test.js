@@ -29,6 +29,7 @@ const valid = () => ({
   ...blankApplication(),
   location: { province: "浙江省", city: "杭州市" },
   audience: "我自己",
+  cardCount: "1",
   device: ["C2000 Ultra"],
   usage: "80",
   activities: ["办公"],
@@ -63,9 +64,9 @@ const readRecord = (application) =>
     getItem: () =>
       JSON.stringify({ signedIn: true, application, draft: application }),
   });
-test("all twelve questions required, honest none/unknown answers accepted, consent and card quantity absent", () => {
+test("all thirteen questions required, honest none/unknown answers accepted, consent absent", () => {
   assert.deepEqual(validateApplication(valid()), {});
-  assert.equal(completedQuestions(valid()), 12);
+  assert.equal(completedQuestions(valid()), 13);
   assert.equal(completedQuestions(blankApplication()), 0);
   for (const field of CORE_FIELDS)
     assert.ok(validateApplication(blankApplication())[field], field);
@@ -75,8 +76,9 @@ test("all twelve questions required, honest none/unknown answers accepted, conse
       sanitizeApplication({ ...valid(), consent: true, cardCount: 3 })
     ),
   );
-  assert.ok(
-    !("cardCount" in sanitizeApplication({ ...valid(), cardCount: 3 })),
+  assert.equal(
+    sanitizeApplication({ ...valid(), cardCount: 3 }).cardCount,
+    "3",
   );
 });
 test("conditional answers required and stale hidden data discarded", () => {
@@ -282,7 +284,7 @@ test("v1/v2 submitted records remain received through multiple migrations", () =
 });
 test("new submissions cannot bypass requirements using old metadata; saved edits clone arrays", () => {
   const migrated = sanitizeApplication(old());
-  assert.equal(readRecord({ ...migrated, schemaVersion: 4 }).application, null);
+  assert.equal(readRecord({ ...migrated, schemaVersion: 5 }).application, null);
   const submitted = sanitizeApplication({ ...valid(), previous: old() });
   assert.ok(readRecord(submitted).application);
   const edited = sanitizeApplication(submitted);
@@ -394,7 +396,7 @@ test("all device series support multiple models and require each selected custom
   const answer = { ...valid(), device: [...DEVICE_OPTIONS] };
   for (const { field } of DEVICE_OTHER_FIELDS)
     assert.ok(validateApplication(answer)[field], field);
-  assert.equal(completedQuestions(answer), 11);
+  assert.equal(completedQuestions(answer), 12);
   for (const { field } of DEVICE_OTHER_FIELDS) answer[field] = `自填${field}`;
   assert.deepEqual(validateApplication(answer), {});
   const restored = readRecord(answer).application;
@@ -425,4 +427,79 @@ test("city search matches city or province locally, with explicit empty results"
   ]);
   assert.deepEqual(searchCities("没有这个城市"), []);
   assert.deepEqual(searchCities(" "), []);
+});
+
+test("card quantity requires a positive whole number and survives storage", () => {
+  for (const cardCount of ["1", "2", "3", "12", " 4 "]) {
+    const answer = { ...valid(), cardCount };
+    assert.deepEqual(validateApplication(answer), {});
+    assert.equal(readRecord(answer).application.cardCount, cardCount.trim());
+  }
+  for (const cardCount of [
+    "",
+    " ",
+    "0",
+    "-1",
+    "1.5",
+    "1e2",
+    "很多",
+    "9007199254740992",
+  ])
+    assert.ok(
+      validateApplication({ ...valid(), cardCount }).cardCount,
+      cardCount,
+    );
+  assert.equal(readRecord({ ...valid(), cardCount: "" }).application, null);
+});
+
+test("v4 submissions remain received, but new edits require quantity and renewed shipping confirmation", () => {
+  const old = { ...valid(), schemaVersion: 4 };
+  delete old.cardCount;
+  const restored = readRecord(old);
+  assert.ok(restored.application);
+  assert.equal(restored.application.schemaVersion, 4);
+  assert.equal(restored.application.cardCount, "");
+  assert.equal(restored.draft.schemaVersion, 5);
+  assert.equal(restored.draft.cardCount, "");
+  assert.equal(restored.draft.feesAccepted, false);
+  assert.ok(validateApplication(restored.draft).cardCount);
+  assert.ok(validateApplication(restored.draft).feesAccepted);
+  restored.draft.cardCount = "4";
+  restored.draft.feesAccepted = true;
+  const reload = readState({ getItem: () => JSON.stringify({ ...restored }) });
+  assert.equal(reload.draft.cardCount, "4");
+  assert.equal(reload.draft.feesAccepted, true);
+  assert.deepEqual(validateApplication(reload.draft), {});
+  assert.ok(readRecord(reload.draft).application);
+});
+
+test("narrative and supplemental answers are never truncated by validation or storage", () => {
+  const long = "一次真实的网络经历，包含详细情况和希望改善的地方。".repeat(100);
+  const fields = [
+    "story",
+    "experienceStory",
+    "discussion",
+    "activityOther",
+    "accessOther",
+    "problemOther",
+    "priorityOther",
+    "currentSetup",
+  ];
+  const answer = {
+    ...valid(),
+    activities: ["其他用途"],
+    access: ["CPE 流量卡", "其他方式"],
+    problems: ["其他问题"],
+    priorities: ["其他方面"],
+    experience: "有，想说说",
+    discussionChoice: "有想说的",
+    ...Object.fromEntries(fields.map((field) => [field, long])),
+  };
+  assert.deepEqual(validateApplication(answer), {});
+  const state = readRecord(answer);
+  for (const field of fields) {
+    assert.equal(state.application[field], long, field);
+    assert.equal(state.draft[field], long, field);
+    assert.ok(validateApplication({ ...answer, [field]: " " })[field], field);
+  }
 });

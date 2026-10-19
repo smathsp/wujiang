@@ -16,6 +16,7 @@ import {
   CORE_FIELDS,
   completedQuestions,
   persistState,
+  prepareDraft,
   readState,
   sanitizeApplication,
   validateApplication,
@@ -182,12 +183,12 @@ function signOut() {
   saveNow();
 }
 function editApplication() {
-  state.draft = sanitizeApplication(state.application);
+  state.draft = prepareDraft(state.application);
   editing.value = true;
   errors.value = {};
 }
 function cancelEdit() {
-  state.draft = sanitizeApplication(state.application);
+  state.draft = prepareDraft(state.application);
   editing.value = false;
   errors.value = {};
   saveNow();
@@ -223,7 +224,7 @@ async function submit() {
   busyTimer = setTimeout(() => {
     state.application = sanitizeApplication({
       ...state.draft,
-      schemaVersion: 4,
+      schemaVersion: 5,
     });
     state.draft = sanitizeApplication(state.application);
     state.updatedAt = new Date().toISOString();
@@ -379,7 +380,10 @@ onBeforeUnmount(() => {
                     errors.feesAccepted ? 'feesAccepted-error' : undefined
                   "
                 /><span
-                  >我已了解：<b>卡片免费，邮费 9.9 元，流量另行计费。</b></span
+                  >我已了解：<b
+                    >卡片免费，邮费 9.9
+                    元，流量另行计费；无疆卡需先激活，才能发货。</b
+                  ></span
                 ></label
               >
               <p
@@ -427,7 +431,16 @@ onBeforeUnmount(() => {
           </div>
           <h1 tabindex="-1">已收到，请等待。</h1>
           <p class="page-hint">报名信息已保存，<br />请等待首批结果通知。</p>
+          <p class="shipping-note">无疆卡需先激活，才能发货。</p>
           <div class="received-info">
+            <div class="received-row">
+              <span>领取数量</span
+              ><span>{{
+                state.application.cardCount
+                  ? `${state.application.cardCount} 张`
+                  : "待补充"
+              }}</span>
+            </div>
             <div class="received-row">
               <span>使用对象</span
               ><span>{{
@@ -501,6 +514,7 @@ onBeforeUnmount(() => {
             <div><span>卡片</span><strong>免费领取</strong></div>
             <div><span>下单邮费</span><strong>¥9.9</strong></div>
           </div>
+          <p class="activation-note">无疆卡需先激活，才能发货。</p>
           <p class="intro-terms">
             流量费用另计，不适合频繁测速和持续大流量下载。
           </p>

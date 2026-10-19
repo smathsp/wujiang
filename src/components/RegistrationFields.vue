@@ -10,8 +10,9 @@ const draft = defineModel({ type: Object, required: true });
 defineProps({ errors: { type: Object, default: () => ({}) }, busy: Boolean });
 defineEmits(["open-city"]);
 const questions = [
-  { key: "location", title: "这张卡主要准备在哪个城市使用？" },
+  { key: "location", title: "无疆卡主要准备在哪个城市使用？" },
   { key: "audience", title: "无疆卡主要准备给谁使用？" },
+  { key: "cardCount", title: "你准备领取几张无疆卡？" },
   {
     key: "device",
     title: "你准备将无疆卡用在哪些设备上？",
@@ -48,7 +49,6 @@ const questions = [
     title: "最希望无疆卡解决哪个具体问题？",
     hint: "谁在用、有什么麻烦、希望怎么解决。",
     text: true,
-    max: 100,
     placeholder: "写下你的实际情况，几句话就好",
     examples: [
       "我经常出差，想给随身 CPE 准备一张备用卡，需要时再买流量。",
@@ -77,28 +77,24 @@ const followups = {
     when: () => draft.value.activities.includes("其他用途"),
     title: "其他流量用途",
     placeholder: "简单说说你平时用流量做什么",
-    max: 80,
   },
   access: {
     key: "accessOther",
     when: () => draft.value.access.includes("其他方式"),
     title: "目前的其他上网方式",
     placeholder: "填写当前联网方式",
-    max: 80,
   },
   problems: {
     key: "problemOther",
     when: () => draft.value.problems.includes("其他问题"),
     title: "你遇到的其他网络问题",
     placeholder: "说说具体的困扰",
-    max: 100,
   },
   priorities: {
     key: "priorityOther",
     when: () => draft.value.priorities.includes("其他方面"),
     title: "你还在意什么？",
     placeholder: "填写你在意的方面",
-    max: 80,
   },
   experience: {
     key: "experienceStory",
@@ -106,7 +102,6 @@ const followups = {
     title: "分享一次真实经历",
     hint: "发生了什么、有什么影响、试过什么办法？",
     placeholder: "几句话说说这次经历",
-    max: 200,
     text: true,
     examples: [
       "开视频会议时热点断了，临时换网络也没赶上汇报。后来准备了备用卡，希望再遇到时可以及时切换。",
@@ -132,7 +127,7 @@ function markSetupUnknown() {
   const value = draft.value.currentSetup.trim();
   if (value.includes("套餐名称不清楚")) return;
   const next = value ? `${value}，套餐名称不清楚` : "套餐名称不清楚";
-  if (next.length <= 100) draft.value.currentSetup = next;
+  draft.value.currentSetup = next;
 }
 for (const followup of Object.values(followups))
   watch(followup.when, (visible) => {
@@ -178,6 +173,36 @@ watch(
       :invalid="!!errors.location"
       @open-city="$emit('open-city')"
     />
+    <div v-else-if="question.key === 'cardCount'">
+      <label class="usage-input" :class="{ invalid: errors.cardCount }">
+        <input
+          v-model="draft.cardCount"
+          type="text"
+          inputmode="numeric"
+          enterkeyhint="done"
+          name="cardCount"
+          aria-label="准备领取几张无疆卡"
+          placeholder="填写领取张数"
+          :aria-invalid="!!errors.cardCount || undefined"
+          :aria-describedby="errors.cardCount ? 'cardCount-error' : undefined"
+        />
+        <span>张</span>
+      </label>
+      <div
+        class="quick-answers quantity-shortcuts"
+        aria-label="快捷选择领取张数"
+      >
+        <button
+          v-for="count in ['1', '2', '3']"
+          :key="count"
+          type="button"
+          :aria-pressed="draft.cardCount === count"
+          @click="draft.cardCount = count"
+        >
+          {{ count }} 张
+        </button>
+      </div>
+    </div>
     <DevicePicker
       v-else-if="question.key === 'device'"
       v-model="draft"
@@ -218,7 +243,6 @@ watch(
       v-model="draft[question.key]"
       :name="question.key"
       :label="question.title"
-      :max="question.max"
       :placeholder="question.placeholder"
       :examples="question.examples"
       :invalid="!!errors[question.key]"
@@ -235,7 +259,6 @@ watch(
           v-model="draft.discussion"
           name="discussion"
           label="想吐槽或想了解的问题"
-          :max="150"
           placeholder="写下想问的问题或想吐槽的事"
           :examples="['最想知道单 GB 的价格，以及怎样查看和控制流量费用。']"
           :invalid="!!errors.discussion"
@@ -309,7 +332,6 @@ watch(
             v-model="draft[followups[question.key].key]"
             :name="followups[question.key].key"
             :label="followups[question.key].title"
-            :max="followups[question.key].max"
             :placeholder="followups[question.key].placeholder"
             :examples="followups[question.key].examples"
             :invalid="!!errors[followups[question.key].key]"
@@ -321,7 +343,6 @@ watch(
             :name="followups[question.key].key"
             :aria-label="followups[question.key].title"
             :placeholder="followups[question.key].placeholder"
-            :maxlength="followups[question.key].max"
             :aria-invalid="!!errors[followups[question.key].key] || undefined"
             :aria-describedby="
               errors[followups[question.key].key]
@@ -347,7 +368,6 @@ watch(
             class="field-input"
             aria-label="目前使用的设备和套餐"
             placeholder="如 Ultra + 天火卡"
-            maxlength="100"
             :aria-invalid="!!errors.currentSetup || undefined"
             :aria-describedby="
               errors.currentSetup ? 'currentSetup-error' : undefined
@@ -356,10 +376,7 @@ watch(
           <div class="quick-answers">
             <button
               type="button"
-              :disabled="
-                draft.currentSetup.includes('套餐名称不清楚') ||
-                draft.currentSetup.trim().length > 90
-              "
+              :disabled="draft.currentSetup.includes('套餐名称不清楚')"
               @click="markSetupUnknown"
             >
               {{

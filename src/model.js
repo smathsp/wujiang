@@ -73,6 +73,7 @@ export const LIMITS = Object.freeze({
 export const CORE_FIELDS = [
   "location",
   "audience",
+  "cardCount",
   "device",
   "usage",
   "activities",
@@ -86,11 +87,12 @@ export const CORE_FIELDS = [
 ];
 export function blankApplication() {
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     location: { province: "", city: "" },
     audience: "",
     relationship: "",
     relationshipKind: "",
+    cardCount: "",
     device: [],
     deviceModel: "",
     deviceOtherC2000: "",
@@ -173,10 +175,20 @@ export function sanitizeApplication(input, { preserveDraftText = false } = {}) {
       : null;
   const values = old ? migrate(previous) : source;
   const clean = blankApplication();
-  clean.schemaVersion = old ? previous.schemaVersion : 4;
+  clean.schemaVersion = old
+    ? previous.schemaVersion
+    : source.schemaVersion === 4
+      ? 4
+      : 5;
   clean.previous = previous;
   // Canonical migrated records already have the new shape. Preserve edits on reload.
   const v = old && "location" in source ? source : values;
+  // Older versions never asked for a quantity; leave it unanswered when upgrading.
+  if (clean.schemaVersion >= 5)
+    clean.cardCount =
+      typeof v.cardCount === "number"
+        ? String(v.cardCount)
+        : text(v.cardCount).trim();
   if (validLocation(v.location))
     clean.location = {
       province: v.location.province,
@@ -210,22 +222,22 @@ export function sanitizeApplication(input, { preserveDraftText = false } = {}) {
   Object.assign(clean, sanitizeDevices(v, preserveDraftText));
   clean.usageUnknown = v.usageUnknown === true;
   clean.usage = clean.usageUnknown ? "" : text(v.usage, 12);
-  for (const [field, parent, option, max] of [
-    ["activityOther", "activities", "其他用途", 80],
-    ["accessOther", "access", "其他方式", 80],
-    ["problemOther", "problems", "其他问题", 100],
-    ["priorityOther", "priorities", "其他方面", 80],
+  for (const [field, parent, option] of [
+    ["activityOther", "activities", "其他用途"],
+    ["accessOther", "access", "其他方式"],
+    ["problemOther", "problems", "其他问题"],
+    ["priorityOther", "priorities", "其他方面"],
   ])
-    clean[field] = clean[parent].includes(option) ? text(v[field], max) : "";
+    clean[field] = clean[parent].includes(option) ? text(v[field]) : "";
   clean.currentSetup = clean.access.includes("CPE 流量卡")
-    ? text(v.currentSetup, 100)
+    ? text(v.currentSetup)
     : "";
-  clean.story = text(v.story, 100);
+  clean.story = text(v.story);
   clean.experienceStory =
     preserveDraftText || clean.experience === "有，想说说"
-      ? text(v.experienceStory, 200)
+      ? text(v.experienceStory)
       : "";
-  const discussion = text(v.discussion, 150);
+  const discussion = text(v.discussion);
   clean.discussionChoice = OPTIONS.discussionChoice.includes(v.discussionChoice)
     ? v.discussionChoice
     : discussion.trim()
@@ -240,12 +252,12 @@ export function sanitizeApplication(input, { preserveDraftText = false } = {}) {
   clean.feesAccepted = v.feesAccepted === true;
   return clean;
 }
-export function validateApplication(value) {
+export function validateApplication(value, { requireCardCount = true } = {}) {
   const errors = {};
   const pick = (key, message) => {
     if (!OPTIONS[key].includes(value[key])) errors[key] = message;
   };
-  const requiredText = (key, message, max) => {
+  const requiredText = (key, message, max = Infinity) => {
     if (
       typeof value[key] !== "string" ||
       !value[key].trim() ||
@@ -270,6 +282,8 @@ export function validateApplication(value) {
   pick("audience", "请选择主要给谁使用");
   if (value.audience === "其他人")
     requiredText("relationship", "请填写使用对象，如父母或朋友", 30);
+  if (requireCardCount && !validCardCount(value.cardCount))
+    errors.cardCount = "请填写领取张数，至少 1 张，填写整数";
   multi("device", "请选择准备使用的设备");
   for (const { option, field, title } of DEVICE_OTHER_FIELDS)
     if (value.device?.includes(option))
@@ -288,30 +302,30 @@ export function validateApplication(value) {
   multi("activities", "请选择平时的流量用途");
   multi("access", "请选择目前的上网方式");
   multi("problems", "请选择遇到的问题，也可选择暂无明显问题");
-  for (const [field, parent, option, max, message] of [
-    ["activityOther", "activities", "其他用途", 80, "请补充其他流量用途"],
-    ["accessOther", "access", "其他方式", 80, "请补充目前的上网方式"],
-    ["problemOther", "problems", "其他问题", 100, "请说说你遇到的其他问题"],
-    ["priorityOther", "priorities", "其他方面", 80, "请补充你在意的方面"],
+  for (const [field, parent, option, message] of [
+    ["activityOther", "activities", "其他用途", "请补充其他流量用途"],
+    ["accessOther", "access", "其他方式", "请补充目前的上网方式"],
+    ["problemOther", "problems", "其他问题", "请说说你遇到的其他问题"],
+    ["priorityOther", "priorities", "其他方面", "请补充你在意的方面"],
   ])
-    if (value[parent]?.includes(option)) requiredText(field, message, max);
+    if (value[parent]?.includes(option)) requiredText(field, message);
   if (value.access?.includes("CPE 流量卡"))
     requiredText(
       "currentSetup",
       "请填写当前设备、套餐；不清楚套餐名称也可以说明",
-      100,
     );
-  requiredText("story", "请用 100 字以内说说你希望解决的具体问题", 100);
+  requiredText("story", "请说说你希望解决的具体问题");
   pick("startTime", "请选择预计开始使用的时间");
   multi("priorities", "请选择最在意的 1—2 个方面");
   pick("experience", "请选择是否有想分享的经历");
   if (value.experience === "有，想说说")
-    requiredText("experienceStory", "请用 200 字以内分享一次真实经历", 200);
+    requiredText("experienceStory", "请分享一次真实经历");
   if (!OPTIONS.discussionChoice.includes(value.discussionChoice))
     errors.discussion = "请选择是否有想说的";
   else if (value.discussionChoice === "有想说的")
-    requiredText("discussion", "请写下你的疑问或吐槽", 150);
-  if (!value.feesAccepted) errors.feesAccepted = "请确认领取和计费说明";
+    requiredText("discussion", "请写下你的疑问或吐槽");
+  if (!value.feesAccepted)
+    errors.feesAccepted = "请确认领取、计费和激活后发货说明";
   return errors;
 }
 export function completedQuestions(value) {
@@ -319,6 +333,7 @@ export function completedQuestions(value) {
   const groups = [
     ["location"],
     ["audience", "relationship"],
+    ["cardCount"],
     ["device", ...DEVICE_OTHER_FIELDS.map((item) => item.field)],
     ["usage"],
     ["activities", "activityOther"],
@@ -350,14 +365,32 @@ export function readState(storage) {
         (previous.schemaVersion < 3
           ? previous.previous && isPreviousSubmission(previous.previous)
           : !Object.keys(validateV3(previous)).length)
-      : !Object.keys(validateApplication(application)).length);
+      : !Object.keys(
+          validateApplication(application, {
+            requireCardCount: application.schemaVersion >= 5,
+          }),
+        ).length);
   return {
     signedIn: saved?.signedIn === true,
     introSeen: saved?.introSeen === true,
     application: accepted ? application : null,
-    draft: sanitizeApplication(saved?.draft, { preserveDraftText: true }),
+    draft: prepareDraft(saved?.draft),
     updatedAt: typeof saved?.updatedAt === "string" ? saved.updatedAt : null,
   };
+}
+export function validCardCount(value) {
+  return (
+    typeof value === "string" &&
+    /^\d+$/.test(value.trim()) &&
+    Number.isSafeInteger(Number(value)) &&
+    Number(value) > 0
+  );
+}
+export function prepareDraft(value) {
+  const draft = sanitizeApplication(value, { preserveDraftText: true });
+  if (draft.schemaVersion < 5) draft.feesAccepted = false;
+  draft.schemaVersion = 5;
+  return draft;
 }
 export function persistState(state, storage) {
   try {
